@@ -57,8 +57,8 @@ An AI-powered system that automates UK university application submissions, monit
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/ai-university-agent.git
-cd ai-university-agent
+git clone https://github.com/wendwise112/lam.git
+cd lam
 ```
 
 ### 2. Backend Setup
