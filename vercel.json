@@ -21,9 +21,9 @@
     }
   ],
   "env": {
-    "REACT_APP_API_URL": "@api_url",
-    "REACT_APP_SUPABASE_URL": "@supabase_url",
-    "REACT_APP_SUPABASE_ANON_KEY": "@supabase_anon_key"
+    "REACT_APP_API_URL": "$REACT_APP_API_URL",
+    "REACT_APP_SUPABASE_URL": "$REACT_APP_SUPABASE_URL",
+    "REACT_APP_SUPABASE_ANON_KEY": "$REACT_APP_SUPABASE_ANON_KEY"
   },
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/build",
