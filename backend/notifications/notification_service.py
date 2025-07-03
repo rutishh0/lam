@@ -162,7 +162,7 @@ class NotificationService:
             'new_status': new_status.replace('_', ' ').title(),
             'application_date': application_data.get('created_at', ''),
             'update_time': datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC'),
-            'dashboard_url': os.environ.get('FRONTEND_URL', 'http://localhost:3000') + '/monitor'
+            'dashboard_url': os.environ.get('FRONTEND_URL', 'https://lam-nu.vercel.app') + '/monitor'
         }
         
         # Render email
@@ -254,7 +254,7 @@ class NotificationService:
             'in_progress_count': status_counts['in_progress'],
             'applications': applications,
             'recent_updates': self._get_recent_updates(applications),
-            'dashboard_url': os.environ.get('FRONTEND_URL', 'http://localhost:3000') + '/monitor'
+            'dashboard_url': os.environ.get('FRONTEND_URL', 'https://lam-nu.vercel.app') + '/monitor'
         }
         
         # Render and send email

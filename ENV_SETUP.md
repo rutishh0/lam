@@ -23,7 +23,7 @@ SUPABASE_SERVICE_KEY=YOUR_SERVICE_ROLE_KEY_HERE
 # Application Settings
 ENVIRONMENT=development
 PORT=8000
-CORS_ORIGINS=["http://localhost:3000", "http://127.0.0.1:3000"]
+CORS_ORIGINS=["http://localhost:3000", "http://127.0.0.1:3000", "https://lam-nu.vercel.app"]
 
 # Optional Services (uncomment when ready)
 # STRIPE_SECRET_KEY=sk_test_...

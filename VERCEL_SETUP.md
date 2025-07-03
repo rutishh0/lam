@@ -17,6 +17,8 @@ REACT_APP_SUPABASE_URL = https://nwtzhzagqfuedslјngkl.supabase.co
 REACT_APP_SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dHpoemFncWZ1ZWRzbGpuZ2tsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0NjEwMTQsImV4cCI6MjA2NzAzNzAxNH0.4f0tNJCWwTXFwOb9wjd581RZZhyv3GezW0nGmhDwYAo
 ```
 
+**✅ IMPORTANT**: I've fixed the frontend environment variable name. It should be `REACT_APP_API_URL` (not `REACT_APP_BACKEND_URL`).
+
 ⚠️ **Important**: Replace `https://your-railway-backend-url.railway.app` with your actual Railway URL once it's deployed successfully.
 
 ## ✅ Step 2: Deploy Updated Configuration

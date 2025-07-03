@@ -742,11 +742,17 @@ except RuntimeError:
     os.makedirs(str(ROOT_DIR / "static"), exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(ROOT_DIR / "static")), name="static")
 
+# Configure CORS
+cors_origins = os.getenv("CORS_ORIGINS", '["http://localhost:3000", "http://127.0.0.1:3000", "https://lam-nu.vercel.app"]')
+if isinstance(cors_origins, str):
+    import json
+    cors_origins = json.loads(cors_origins)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=cors_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
