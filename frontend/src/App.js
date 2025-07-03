@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import axios from 'axios';
-import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
 import { 
   Bot, 
   Users, 
@@ -17,979 +17,890 @@ import {
   Plus,
   Monitor,
   BarChart,
-  Shield
+  Shield,
+  Star,
+  Check,
+  Menu,
+  X,
+  ArrowRight,
+  Zap,
+  Globe,
+  Smartphone,
+  BookOpen,
+  Award,
+  TrendingUp,
+  LogOut
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import Analytics from './components/Analytics';
 import DocumentUpload from './components/DocumentUpload';
 import './App.css';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 const API = `${BACKEND_URL}/api`;
 
-// Dashboard Components
-const Dashboard = () => {
-  const [stats, setStats] = useState({
-    totalClients: 0,
-    activeApplications: 0,
-    successfulApplications: 0,
-    pendingApplications: 0
-  });
+// Authentication Context
+const AuthContext = createContext();
 
-  const [recentActivity, setRecentActivity] = useState([]);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      const [clientsRes, applicationsRes] = await Promise.all([
-        axios.get(`${API}/clients`),
-        axios.get(`${API}/applications`)
-      ]);
-
-      const clients = clientsRes.data;
-      const applications = applicationsRes.data;
-
-      setStats({
-        totalClients: clients.length,
-        activeApplications: applications.filter(app => app.status === 'in_progress').length,
-        successfulApplications: applications.filter(app => app.status === 'accepted').length,
-        pendingApplications: applications.filter(app => app.status === 'pending').length
-      });
-
-      setRecentActivity(applications.slice(0, 5));
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-    }
-  };
-
-  return (
-    <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Agent Dashboard</h1>
-        <p className="text-gray-600">Monitor and control your autonomous university application agent</p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <Users className="h-8 w-8 text-blue-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Clients</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.totalClients}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <Clock className="h-8 w-8 text-orange-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Applications</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.activeApplications}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <CheckCircle className="h-8 w-8 text-green-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Successful</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.successfulApplications}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <AlertCircle className="h-8 w-8 text-yellow-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.pendingApplications}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Link to="/clients/new" className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <Plus className="h-8 w-8" />
-            <div className="ml-4">
-              <h3 className="text-lg font-semibold">Add New Client</h3>
-              <p className="text-blue-100">Register a new client for applications</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link to="/agent-control" className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <Bot className="h-8 w-8" />
-            <div className="ml-4">
-              <h3 className="text-lg font-semibold">Agent Control</h3>
-              <p className="text-green-100">Execute agent commands</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link to="/monitor" className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <Monitor className="h-8 w-8" />
-            <div className="ml-4">
-              <h3 className="text-lg font-semibold">Monitor Applications</h3>
-              <p className="text-purple-100">Track application status</p>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
-        </div>
-        <div className="p-6">
-          {recentActivity.length > 0 ? (
-            <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                  <University className="h-5 w-5 text-gray-600" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{activity.university_name}</p>
-                    <p className="text-xs text-gray-600">{activity.course_name}</p>
-                  </div>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    activity.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                    activity.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                    activity.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {activity.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">No recent activity</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ClientManagement = () => {
-  const [clients, setClients] = useState([]);
+const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchClients();
+    // Check for existing session
+    const token = localStorage.getItem('auth_token');
+    const userData = localStorage.getItem('user_data');
+    
+    if (token && userData) {
+      setUser(JSON.parse(userData));
+    }
+    setLoading(false);
   }, []);
 
-  const fetchClients = async () => {
+  const login = async (email, password) => {
     try {
-      const response = await axios.get(`${API}/clients`);
-      setClients(response.data);
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-      toast.error('Failed to load clients');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return <div className="p-6">Loading clients...</div>;
-  }
-
-  return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Client Management</h1>
-        <Link
-          to="/clients/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add Client</span>
-        </Link>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Client
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nationality
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {clients.map((client) => (
-                <tr key={client.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{client.full_name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{client.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{client.nationality}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">
-                      {new Date(client.created_at).toLocaleDateString()}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-3">
-                      <Link
-                        to={`/analytics/${client.id}`}
-                        className="text-green-600 hover:text-green-900"
-                        title="View Analytics"
-                      >
-                        <BarChart className="h-4 w-4" />
-                      </Link>
-                      <Link
-                        to={`/clients/${client.id}`}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="View Details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const NewClientForm = () => {
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    phone: '',
-    date_of_birth: '',
-    nationality: '',
-    address: '',
-    personal_statement: '',
-    academic_history: [{ institution: '', qualification: '', grade: '', year: '' }],
-    course_preferences: [{ university: '', course_name: '', course_code: '', entry_year: '' }],
-    documents: {}
-  });
-
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleAcademicChange = (index, field, value) => {
-    const newHistory = [...formData.academic_history];
-    newHistory[index][field] = value;
-    setFormData(prev => ({
-      ...prev,
-      academic_history: newHistory
-    }));
-  };
-
-  const handleCourseChange = (index, field, value) => {
-    const newPreferences = [...formData.course_preferences];
-    newPreferences[index][field] = value;
-    setFormData(prev => ({
-      ...prev,
-      course_preferences: newPreferences
-    }));
-  };
-
-  const addAcademicEntry = () => {
-    setFormData(prev => ({
-      ...prev,
-      academic_history: [...prev.academic_history, { institution: '', qualification: '', grade: '', year: '' }]
-    }));
-  };
-
-  const addCoursePreference = () => {
-    setFormData(prev => ({
-      ...prev,
-      course_preferences: [...prev.course_preferences, { university: '', course_name: '', course_code: '', entry_year: '' }]
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-
-    try {
-      const response = await axios.post(`${API}/clients`, formData);
-      toast.success('Client created successfully!');
-      navigate('/clients');
-    } catch (error) {
-      console.error('Error creating client:', error);
-      toast.error('Failed to create client');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Add New Client</h1>
-        <p className="text-gray-600">Enter client information for autonomous applications</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Personal Information */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-              <input
-                type="text"
-                name="full_name"
-                value={formData.full_name}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-              <input
-                type="date"
-                name="date_of_birth"
-                value={formData.date_of_birth}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nationality</label>
-              <input
-                type="text"
-                name="nationality"
-                value={formData.nationality}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-              <textarea
-                name="address"
-                value={formData.address}
-                onChange={handleInputChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Academic History */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Academic History</h2>
-            <button
-              type="button"
-              onClick={addAcademicEntry}
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-            >
-              + Add Entry
-            </button>
-          </div>
-          {formData.academic_history.map((entry, index) => (
-            <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <input
-                type="text"
-                placeholder="Institution"
-                value={entry.institution}
-                onChange={(e) => handleAcademicChange(index, 'institution', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Qualification"
-                value={entry.qualification}
-                onChange={(e) => handleAcademicChange(index, 'qualification', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Grade"
-                value={entry.grade}
-                onChange={(e) => handleAcademicChange(index, 'grade', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Year"
-                value={entry.year}
-                onChange={(e) => handleAcademicChange(index, 'year', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Course Preferences */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Course Preferences</h2>
-            <button
-              type="button"
-              onClick={addCoursePreference}
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-            >
-              + Add Course
-            </button>
-          </div>
-          {formData.course_preferences.map((preference, index) => (
-            <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <input
-                type="text"
-                placeholder="University"
-                value={preference.university}
-                onChange={(e) => handleCourseChange(index, 'university', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Course Name"
-                value={preference.course_name}
-                onChange={(e) => handleCourseChange(index, 'course_name', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Course Code"
-                value={preference.course_code}
-                onChange={(e) => handleCourseChange(index, 'course_code', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Entry Year"
-                value={preference.entry_year}
-                onChange={(e) => handleCourseChange(index, 'entry_year', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Personal Statement */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Statement</h2>
-          <textarea
-            name="personal_statement"
-            value={formData.personal_statement}
-            onChange={handleInputChange}
-            rows={8}
-            placeholder="Enter personal statement..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-
-        {/* Document Upload */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Documents</h2>
-          <DocumentUpload 
-            onDocumentsChange={(docs) => setFormData(prev => ({ ...prev, documents: docs }))}
-            existingDocuments={formData.documents}
-          />
-        </div>
-
-        {/* Submit Button */}
-        <div className="flex justify-end space-x-4">
-          <Link
-            to="/clients"
-            className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </Link>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            {submitting ? 'Creating...' : 'Create Client'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-};
-
-const AgentControl = () => {
-  const [clients, setClients] = useState([]);
-  const [universities, setUniversities] = useState([]);
-  const [selectedClient, setSelectedClient] = useState('');
-  const [selectedUniversities, setSelectedUniversities] = useState([]);
-  const [courseName, setCourseName] = useState('');
-  const [courseCode, setCourseCode] = useState('');
-  const [executing, setExecuting] = useState(false);
-
-  useEffect(() => {
-    fetchClients();
-    fetchUniversities();
-  }, []);
-
-  const fetchClients = async () => {
-    try {
-      const response = await axios.get(`${API}/clients`);
-      setClients(response.data);
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-    }
-  };
-
-  const fetchUniversities = async () => {
-    try {
-      const response = await axios.get(`${API}/universities`);
-      setUniversities(response.data.universities);
-    } catch (error) {
-      console.error('Error fetching universities:', error);
-    }
-  };
-
-  const handleUniversitySelection = (universityCode) => {
-    setSelectedUniversities(prev => 
-      prev.includes(universityCode) 
-        ? prev.filter(code => code !== universityCode)
-        : [...prev, universityCode]
-    );
-  };
-
-  const executeApplications = async () => {
-    if (!selectedClient || selectedUniversities.length === 0) {
-      toast.error('Please select a client and at least one university');
-      return;
-    }
-
-    setExecuting(true);
-    try {
-      const command = {
-        command_type: 'create_applications',
-        client_id: selectedClient,
-        parameters: {
-          universities: selectedUniversities,
-          course_name: courseName || 'Computer Science',
-          course_code: courseCode || 'CS101'
-        }
-      };
-
-      const response = await axios.post(`${API}/agent/execute`, command);
-      toast.success('Agent execution started! Applications are being created.');
-    } catch (error) {
-      console.error('Error executing agent:', error);
-      toast.error('Failed to execute agent command');
-    } finally {
-      setExecuting(false);
-    }
-  };
-
-  const checkApplicationStatus = async () => {
-    if (!selectedClient) {
-      toast.error('Please select a client');
-      return;
-    }
-
-    setExecuting(true);
-    try {
-      const command = {
-        command_type: 'check_status',
-        client_id: selectedClient,
-        parameters: {}
-      };
-
-      const response = await axios.post(`${API}/agent/execute`, command);
-      toast.success('Status check started! Results will be updated shortly.');
-    } catch (error) {
-      console.error('Error checking status:', error);
-      toast.error('Failed to check application status');
-    } finally {
-      setExecuting(false);
-    }
-  };
-
-  return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Agent Control Panel</h1>
-        <p className="text-gray-600">Execute autonomous agent commands</p>
-      </div>
-
-      <div className="space-y-6">
-        {/* Client Selection */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Client</h2>
-          <select
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Choose a client...</option>
-            {clients.map(client => (
-              <option key={client.id} value={client.id}>
-                {client.full_name} - {client.email}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* University Selection */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Universities</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {universities.map(university => (
-              <label key={university.code} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
-                <input
-                  type="checkbox"
-                  checked={selectedUniversities.includes(university.code)}
-                  onChange={() => handleUniversitySelection(university.code)}
-                  className="form-checkbox h-4 w-4 text-blue-600"
-                />
-                <div>
-                  <div className="font-medium text-gray-900">{university.name}</div>
-                  <div className="text-sm text-gray-500">{university.code}</div>
-                </div>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Course Details */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Course Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Course Name</label>
-              <input
-                type="text"
-                value={courseName}
-                onChange={(e) => setCourseName(e.target.value)}
-                placeholder="e.g., Computer Science"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Course Code</label>
-              <input
-                type="text"
-                value={courseCode}
-                onChange={(e) => setCourseCode(e.target.value)}
-                placeholder="e.g., CS101"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Agent Actions */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Agent Actions</h2>
-          <div className="flex space-x-4">
-            <button
-              onClick={executeApplications}
-              disabled={executing}
-              className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-            >
-              <Play className="h-4 w-4" />
-              <span>{executing ? 'Executing...' : 'Create Applications'}</span>
-            </button>
-            <button
-              onClick={checkApplicationStatus}
-              disabled={executing}
-              className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              <Monitor className="h-4 w-4" />
-              <span>Check Status</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ApplicationMonitor = () => {
-  const [applications, setApplications] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchApplications();
-    // Set up polling for real-time updates
-    const interval = setInterval(fetchApplications, 30000); // Update every 30 seconds
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchApplications = async () => {
-    try {
-      const response = await axios.get(`${API}/applications`);
-      setApplications(response.data);
-    } catch (error) {
-      console.error('Error fetching applications:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'accepted': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'in_progress': return 'bg-blue-100 text-blue-800';
-      case 'submitted': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  if (loading) {
-    return <div className="p-6">Loading applications...</div>;
-  }
-
-  return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Application Monitor</h1>
-        <p className="text-gray-600">Real-time monitoring of university applications</p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  University
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Course
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Last Checked
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {applications.map((app) => (
-                <tr key={app.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <University className="h-5 w-5 text-gray-400 mr-2" />
-                      <div className="text-sm font-medium text-gray-900">{app.university_name}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{app.course_name}</div>
-                    <div className="text-sm text-gray-500">{app.course_code}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(app.status)}`}>
-                      {app.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(app.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {app.last_checked ? new Date(app.last_checked).toLocaleDateString() : 'Never'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Mock University Portal Component
-const MockUniversityPortal = ({ universityCode }) => {
-  const [university, setUniversity] = useState(null);
-  const [formFields, setFormFields] = useState({});
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchUniversityPortal();
-  }, [universityCode]);
-
-  const fetchUniversityPortal = async () => {
-    try {
-      const response = await axios.get(`${API}/mock-university/${universityCode}`);
-      setUniversity(response.data.university);
-      setFormFields(response.data.form_fields);
-    } catch (error) {
-      console.error('Error fetching university portal:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return <div className="p-6">Loading university portal...</div>;
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow-sm">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">{university.name}</h1>
-          <p className="text-gray-600">Online Application Portal</p>
-        </div>
-      </div>
+      const response = await axios.post(`${API}/auth/login`, { email, password });
+      const { token, user: userData } = response.data;
       
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h2 className="text-lg font-semibold mb-4">Application Form</h2>
-          <p className="text-gray-600 mb-6">
-            This is a mock university portal for testing the autonomous agent. 
-            The agent will interact with forms like this to submit applications.
-          </p>
-          
-          <div className="space-y-6">
-            {Object.entries(formFields).map(([section, fields]) => (
-              <div key={section} className="border rounded-lg p-4">
-                <h3 className="font-medium text-gray-900 mb-3 capitalize">
-                  {section.replace('_', ' ')}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {fields.map((field, index) => (
-                    <input
-                      key={index}
-                      type="text"
-                      placeholder={field.replace('_', ' ')}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      readOnly
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <div className="mt-6 flex justify-end">
-            <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              Submit Application
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user_data', JSON.stringify(userData));
+      setUser(userData);
+      
+      // Set default axios header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.detail || 'Login failed' };
+    }
+  };
+
+  const signup = async (userData) => {
+    try {
+      const response = await axios.post(`${API}/auth/register`, userData);
+      const { token, user: newUser } = response.data;
+      
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user_data', JSON.stringify(newUser));
+      setUser(newUser);
+      
+      // Set default axios header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.detail || 'Signup failed' };
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
+    setUser(null);
+    delete axios.defaults.headers.common['Authorization'];
+  };
+
+  const value = {
+    user,
+    login,
+    signup,
+    logout,
+    loading,
+    isAuthenticated: !!user,
+    isAdmin: user?.role === 'admin'
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
   );
+};
+
+const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+// Protected Route Component
+const ProtectedRoute = ({ children, adminOnly = false }) => {
+  const { isAuthenticated, isAdmin, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/signin" replace />;
+  }
+
+  if (adminOnly && !isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
 };
 
 // Navigation Component
 const Navigation = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isAuthenticated, user, logout } = useAuth();
+
   return (
-    <nav className="bg-white shadow-sm border-b">
+    <nav className="bg-white shadow-lg fixed w-full z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
           <div className="flex items-center">
-            <Bot className="h-8 w-8 text-blue-600 mr-2" />
-            <Link to="/" className="text-xl font-bold text-gray-900">
-              UniAgent
+            <Link to="/" className="flex items-center space-x-2">
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-lg">
+                <Bot className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                UniAgent
+              </span>
             </Link>
           </div>
-          <div className="flex items-center space-x-8">
-            <Link to="/" className="text-gray-700 hover:text-blue-600 flex items-center space-x-1">
-              <Monitor className="h-4 w-4" />
-              <span>Dashboard</span>
-            </Link>
-            <Link to="/clients" className="text-gray-700 hover:text-blue-600 flex items-center space-x-1">
-              <Users className="h-4 w-4" />
-              <span>Clients</span>
-            </Link>
-            <Link to="/agent-control" className="text-gray-700 hover:text-blue-600 flex items-center space-x-1">
-              <Bot className="h-4 w-4" />
-              <span>Agent Control</span>
-            </Link>
-            <Link to="/monitor" className="text-gray-700 hover:text-blue-600 flex items-center space-x-1">
-              <FileText className="h-4 w-4" />
-              <span>Monitor</span>
-            </Link>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-8">
+            {!isAuthenticated ? (
+              <>
+                <Link to="/features" className="text-gray-700 hover:text-blue-600 transition-colors">
+                  Features
+                </Link>
+                <Link to="/pricing" className="text-gray-700 hover:text-blue-600 transition-colors">
+                  Pricing
+                </Link>
+                <Link to="/about" className="text-gray-700 hover:text-blue-600 transition-colors">
+                  About
+                </Link>
+                <Link to="/signin" className="text-gray-700 hover:text-blue-600 transition-colors">
+                  Sign In
+                </Link>
+                <Link 
+                  to="/signup" 
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105"
+                >
+                  Get Started
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/dashboard" className="text-gray-700 hover:text-blue-600 flex items-center space-x-1">
+                  <Monitor className="h-4 w-4" />
+                  <span>Dashboard</span>
+                </Link>
+                {user?.role === 'admin' && (
+                  <Link to="/admin" className="text-gray-700 hover:text-blue-600 flex items-center space-x-1">
+                    <Shield className="h-4 w-4" />
+                    <span>Admin</span>
+                  </Link>
+                )}
+                <div className="flex items-center space-x-4">
+                  <span className="text-gray-700">Welcome, {user?.name}</span>
+                  <button
+                    onClick={logout}
+                    className="text-gray-700 hover:text-red-600 flex items-center space-x-1"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden">
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="text-gray-700 hover:text-blue-600"
+            >
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Navigation */}
+        {isMenuOpen && (
+          <div className="md:hidden bg-white border-t border-gray-200">
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              {!isAuthenticated ? (
+                <>
+                  <Link to="/features" className="block px-3 py-2 text-gray-700 hover:text-blue-600">
+                    Features
+                  </Link>
+                  <Link to="/pricing" className="block px-3 py-2 text-gray-700 hover:text-blue-600">
+                    Pricing
+                  </Link>
+                  <Link to="/about" className="block px-3 py-2 text-gray-700 hover:text-blue-600">
+                    About
+                  </Link>
+                  <Link to="/signin" className="block px-3 py-2 text-gray-700 hover:text-blue-600">
+                    Sign In
+                  </Link>
+                  <Link to="/signup" className="block px-3 py-2 bg-blue-600 text-white rounded-lg text-center">
+                    Get Started
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/dashboard" className="block px-3 py-2 text-gray-700 hover:text-blue-600">
+                    Dashboard
+                  </Link>
+                  {user?.role === 'admin' && (
+                    <Link to="/admin" className="block px-3 py-2 text-gray-700 hover:text-blue-600">
+                      Admin Panel
+                    </Link>
+                  )}
+                  <button
+                    onClick={logout}
+                    className="block w-full text-left px-3 py-2 text-gray-700 hover:text-red-600"
+                  >
+                    Logout
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );
 };
 
-// Analytics wrapper component
-const ClientAnalytics = () => {
-  const { clientId } = useParams();
+// Landing Page Component
+const LandingPage = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Client Analytics</h1>
-        <p className="text-gray-600">Insights and performance metrics</p>
+    <div className="min-h-screen bg-white">
+      {/* Hero Section */}
+      <section className="pt-20 pb-16 bg-gradient-to-br from-blue-50 to-purple-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-6">
+              Automate Your
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                {" "}University Applications
+              </span>
+            </h1>
+            <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-4xl mx-auto">
+              AI-powered university application automation that handles multiple applications simultaneously 
+              with enterprise-grade security and real-time monitoring.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => navigate('/signup')}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg"
+              >
+                Start Free Trial
+                <ArrowRight className="inline-block ml-2 h-5 w-5" />
+              </button>
+              <button
+                onClick={() => navigate('/demo')}
+                className="border-2 border-gray-300 text-gray-700 px-8 py-4 rounded-lg text-lg font-semibold hover:border-blue-600 hover:text-blue-600 transition-all"
+              >
+                Watch Demo
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Powerful Features for Success
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Everything you need to streamline university applications with AI-powered automation
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+              {
+                icon: <Bot className="h-8 w-8 text-blue-600" />,
+                title: "AI-Powered Automation",
+                description: "Intelligent form filling and submission with anti-detection technology"
+              },
+              {
+                icon: <Shield className="h-8 w-8 text-green-600" />,
+                title: "Enterprise Security",
+                description: "AES-256 encryption and secure credential storage for complete data protection"
+              },
+              {
+                icon: <BarChart className="h-8 w-8 text-purple-600" />,
+                title: "Real-time Analytics",
+                description: "Track application progress, success rates, and performance metrics"
+              },
+              {
+                icon: <Globe className="h-8 w-8 text-indigo-600" />,
+                title: "Multi-University Support",
+                description: "Apply to multiple universities simultaneously with custom preferences"
+              },
+              {
+                icon: <Smartphone className="h-8 w-8 text-pink-600" />,
+                title: "Smart Notifications",
+                description: "Email and SMS alerts for application updates and deadlines"
+              },
+              {
+                icon: <Award className="h-8 w-8 text-yellow-600" />,
+                title: "Success Optimization",
+                description: "AI recommendations to improve application success rates"
+              }
+            ].map((feature, index) => (
+              <div key={index} className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition-shadow">
+                <div className="bg-white w-16 h-16 rounded-lg flex items-center justify-center mb-6 shadow-sm">
+                  {feature.icon}
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">{feature.title}</h3>
+                <p className="text-gray-600">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
+            {[
+              { number: "10,000+", label: "Applications Submitted" },
+              { number: "95%", label: "Success Rate" },
+              { number: "50+", label: "Universities Supported" },
+              { number: "24/7", label: "Monitoring & Support" }
+            ].map((stat, index) => (
+              <div key={index} className="text-white">
+                <div className="text-4xl font-bold mb-2">{stat.number}</div>
+                <div className="text-xl opacity-90">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Trusted by Students Worldwide
+            </h2>
+            <p className="text-xl text-gray-600">
+              See what our users say about their experience
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                name: "Sarah Johnson",
+                role: "Computer Science Student",
+                content: "UniAgent helped me apply to 15 universities in just one week. Got accepted to Oxford!",
+                rating: 5
+              },
+              {
+                name: "Mike Chen",
+                role: "Engineering Applicant",
+                content: "The automation saved me hundreds of hours. The success rate is incredible.",
+                rating: 5
+              },
+              {
+                name: "Emma Williams",
+                role: "Medical Student",
+                content: "Secure, reliable, and efficient. Couldn't have managed without UniAgent.",
+                rating: 5
+              }
+            ].map((testimonial, index) => (
+              <div key={index} className="bg-white p-8 rounded-xl shadow-sm">
+                <div className="flex mb-4">
+                  {[...Array(testimonial.rating)].map((_, i) => (
+                    <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
+                  ))}
+                </div>
+                <p className="text-gray-600 mb-6">"{testimonial.content}"</p>
+                <div>
+                  <div className="font-semibold text-gray-900">{testimonial.name}</div>
+                  <div className="text-gray-500">{testimonial.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+          <h2 className="text-4xl font-bold text-gray-900 mb-6">
+            Ready to Transform Your University Applications?
+          </h2>
+          <p className="text-xl text-gray-600 mb-8">
+            Join thousands of students who have successfully automated their applications with UniAgent
+          </p>
+          <button
+            onClick={() => navigate('/signup')}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg"
+          >
+            Start Your Free Trial Today
+            <ArrowRight className="inline-block ml-2 h-5 w-5" />
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+// Pricing Page Component
+const PricingPage = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  const plans = [
+    {
+      name: "Starter",
+      price: "£29",
+      period: "/month",
+      description: "Perfect for students applying to a few universities",
+      features: [
+        "Up to 5 university applications",
+        "Basic automation features",
+        "Email support",
+        "Application tracking",
+        "Document storage"
+      ],
+      popular: false,
+      ctaText: "Start Free Trial"
+    },
+    {
+      name: "Professional",
+      price: "£79",
+      period: "/month",
+      description: "Ideal for students applying to multiple universities",
+      features: [
+        "Up to 20 university applications",
+        "Advanced AI automation",
+        "Priority support",
+        "Advanced analytics",
+        "Custom personal statements",
+        "UCAS integration",
+        "SMS notifications"
+      ],
+      popular: true,
+      ctaText: "Start Free Trial"
+    },
+    {
+      name: "Enterprise",
+      price: "£199",
+      period: "/month",
+      description: "For education consultants and agencies",
+      features: [
+        "Unlimited applications",
+        "White-label solution",
+        "24/7 phone support",
+        "Custom integrations",
+        "Dedicated account manager",
+        "Bulk client management",
+        "Advanced reporting",
+        "API access"
+      ],
+      popular: false,
+      ctaText: "Contact Sales"
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50 pt-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center mb-16">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Simple, Transparent Pricing
+          </h1>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Choose the perfect plan for your university application needs. All plans include a 14-day free trial.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {plans.map((plan, index) => (
+            <div
+              key={index}
+              className={`bg-white rounded-xl shadow-lg p-8 relative ${
+                plan.popular ? 'border-2 border-blue-600 transform scale-105' : 'border border-gray-200'
+              }`}
+            >
+              {plan.popular && (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-semibold">
+                    Most Popular
+                  </span>
+                </div>
+              )}
+
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                <p className="text-gray-600 mb-4">{plan.description}</p>
+                <div className="flex items-center justify-center">
+                  <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
+                  <span className="text-gray-600 ml-2">{plan.period}</span>
+                </div>
+              </div>
+
+              <ul className="space-y-4 mb-8">
+                {plan.features.map((feature, featureIndex) => (
+                  <li key={featureIndex} className="flex items-center">
+                    <Check className="h-5 w-5 text-green-600 mr-3 flex-shrink-0" />
+                    <span className="text-gray-700">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={() => isAuthenticated ? navigate('/dashboard') : navigate('/signup')}
+                className={`w-full py-3 px-6 rounded-lg font-semibold transition-all ${
+                  plan.popular
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transform hover:scale-105'
+                    : 'border-2 border-gray-300 text-gray-700 hover:border-blue-600 hover:text-blue-600'
+                }`}
+              >
+                {plan.ctaText}
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-center mt-16">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">
+            Need a Custom Solution?
+          </h3>
+          <p className="text-gray-600 mb-6">
+            Contact our sales team for enterprise pricing and custom features
+          </p>
+          <button className="bg-gray-900 text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors">
+            Contact Sales
+          </button>
+        </div>
       </div>
-      <Analytics clientId={clientId} />
+    </div>
+  );
+};
+
+// Sign Up Page Component
+const SignUpPage = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    plan: 'starter'
+  });
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { signup, isAuthenticated } = useAuth();
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    const result = await signup({
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+      plan: formData.plan
+    });
+
+    if (result.success) {
+      toast.success('Account created successfully!');
+      navigate('/dashboard');
+    } else {
+      toast.error(result.error);
+    }
+
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-20 pb-12">
+      <div className="max-w-md w-full space-y-8 p-8">
+        <div className="text-center">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-lg inline-block">
+            <Bot className="h-8 w-8 text-white" />
+          </div>
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+            Create your account
+          </h2>
+          <p className="mt-2 text-gray-600">
+            Start your 14-day free trial today
+          </p>
+        </div>
+
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                Full Name
+              </label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email Address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="plan" className="block text-sm font-medium text-gray-700">
+                Choose Plan
+              </label>
+              <select
+                id="plan"
+                name="plan"
+                value={formData.plan}
+                onChange={(e) => setFormData({...formData, plan: e.target.value})}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+              >
+                <option value="starter">Starter (£29/month)</option>
+                <option value="professional">Professional (£79/month)</option>
+                <option value="enterprise">Enterprise (£199/month)</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Creating Account...' : 'Create Account'}
+          </button>
+
+          <div className="text-center">
+            <p className="text-gray-600">
+              Already have an account?{' '}
+              <Link to="/signin" className="text-blue-600 hover:text-blue-700 font-medium">
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Sign In Page Component
+const SignInPage = () => {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const result = await login(formData.email, formData.password);
+
+    if (result.success) {
+      toast.success('Welcome back!');
+      navigate('/dashboard');
+    } else {
+      toast.error(result.error);
+    }
+
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-20 pb-12">
+      <div className="max-w-md w-full space-y-8 p-8">
+        <div className="text-center">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-lg inline-block">
+            <Bot className="h-8 w-8 text-white" />
+          </div>
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+            Welcome back
+          </h2>
+          <p className="mt-2 text-gray-600">
+            Sign in to your account
+          </p>
+        </div>
+
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email Address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember"
+                name="remember"
+                type="checkbox"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="remember" className="ml-2 block text-sm text-gray-700">
+                Remember me
+              </label>
+            </div>
+
+            <Link
+              to="/forgot-password"
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              Forgot password?
+            </Link>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Signing In...' : 'Sign In'}
+          </button>
+
+          <div className="text-center">
+            <p className="text-gray-600">
+              Don't have an account?{' '}
+              <Link to="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
+                Sign up for free
+              </Link>
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Placeholder Dashboard Component (we'll build this properly next)
+const Dashboard = () => {
+  const { user } = useAuth();
+
+  return (
+    <div className="min-h-screen bg-gray-50 pt-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">
+          Welcome back, {user?.name}!
+        </h1>
+        <div className="bg-white p-8 rounded-lg shadow">
+          <p className="text-gray-600">
+            Dashboard coming soon! This will be your main control center for managing university applications.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
@@ -997,23 +908,41 @@ const ClientAnalytics = () => {
 // Main App Component
 function App() {
   return (
-    <div className="App min-h-screen bg-gray-50">
-      <BrowserRouter>
-        <Navigation />
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/clients" element={<ClientManagement />} />
-          <Route path="/clients/new" element={<NewClientForm />} />
-          <Route path="/agent-control" element={<AgentControl />} />
-          <Route path="/monitor" element={<ApplicationMonitor />} />
-          <Route path="/analytics/:clientId" element={<ClientAnalytics />} />
-          <Route path="/mock-university/:universityCode" element={
-            <MockUniversityPortal universityCode={window.location.pathname.split('/').pop()} />
-          } />
-        </Routes>
-      </BrowserRouter>
-      <Toaster position="top-right" />
-    </div>
+    <AuthProvider>
+      <div className="App">
+        <BrowserRouter>
+          <Navigation />
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/signin" element={<SignInPage />} />
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute adminOnly>
+                  <div className="min-h-screen bg-gray-50 pt-20">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                      <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
+                      <p className="text-gray-600 mt-4">Admin dashboard coming soon!</p>
+                    </div>
+                  </div>
+                </ProtectedRoute>
+              } 
+            />
+          </Routes>
+        </BrowserRouter>
+        <Toaster position="top-right" />
+      </div>
+    </AuthProvider>
   );
 }
 

@@ -1,29 +1,38 @@
-from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks
+from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timedelta
 import asyncio
 import json
-import schedule
-import time
-from threading import Thread
-import random
 import traceback
+import random
 
 # Import new services
 from automation.browser_automation import EnhancedBrowserAutomation
 from security.encryption import DataEncryption, SecureCredentialStorage
 from notifications.notification_service import NotificationService
 from monitoring.status_monitor import ApplicationMonitor, PerformanceMonitor
+from database.supabase_client import get_supabase_client, SupabaseClient
+
+# Import authentication services
+from auth.auth_service import (
+    AuthService, 
+    UserCreate, 
+    UserLogin, 
+    UserResponse, 
+    TokenResponse,
+    get_current_user,
+    require_admin,
+    check_usage_limits
+)
 
 # Custom JSON encoder to handle datetime objects
 class DateTimeEncoder(json.JSONEncoder):
@@ -39,17 +48,16 @@ load_dotenv(ROOT_DIR / '.env')
 app = FastAPI(title="Autonomous University Application Agent")
 api_router = APIRouter(prefix="/api")
 
-# MongoDB connection (keeping for local data)
-mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ.get('DB_NAME', 'test_database')]
+# Initialize Supabase client
+supabase_client = get_supabase_client()
 
 # Initialize services
 encryption_service = DataEncryption()
 credential_storage = SecureCredentialStorage(encryption_service)
 notification_service = NotificationService()
-app_monitor = ApplicationMonitor(db, notification_service)
+app_monitor = ApplicationMonitor(supabase_client, notification_service)
 perf_monitor = PerformanceMonitor()
+auth_service = AuthService(supabase_client)
 
 # Data Models
 class ClientData(BaseModel):
@@ -281,42 +289,216 @@ agent = UniversityApplicationAgent()
 async def root():
     return {"message": "Autonomous University Application Agent API"}
 
-@api_router.post("/clients", response_model=dict)
-async def create_client(client_data: ClientData, background_tasks: BackgroundTasks):
-    """Store client data in database with encryption"""
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for deployment monitoring"""
     try:
-        # Encrypt sensitive data
-        encrypted_data = encryption_service.encrypt_client_data(client_data.dict())
+        # Check database connection
+        client = get_supabase_client()
+        # Simple query to verify connection
+        result = client.table('users').select('id').limit(1).execute()
         
-        # Store in mock database (unencrypted for demo)
-        mock_db["clients"].append(client_data.dict())
+        return {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "services": {
+                "database": "connected",
+                "api": "running"
+            },
+            "version": "2.0.0"
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "error": str(e),
+            "version": "2.0.0"
+        }
+
+# === AUTHENTICATION ENDPOINTS ===
+
+@api_router.post("/auth/register", response_model=dict)
+async def register_user(user_data: UserCreate):
+    """Register a new user account"""
+    try:
+        result = await auth_service.register_user(user_data)
+        return {
+            "status": "success",
+            "message": "Account created successfully",
+            "token": result["token"],
+            "refresh_token": result["refresh_token"],
+            "user": result["user"]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Registration failed")
+
+@api_router.post("/auth/login", response_model=dict)
+async def login_user(login_data: UserLogin):
+    """Authenticate user and return tokens"""
+    try:
+        result = await auth_service.login_user(login_data)
+        return {
+            "status": "success",
+            "message": "Login successful",
+            "token": result["token"],
+            "refresh_token": result["refresh_token"],
+            "user": result["user"]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Login failed")
+
+@api_router.post("/auth/refresh", response_model=dict)
+async def refresh_token(refresh_token: str):
+    """Refresh access token"""
+    try:
+        result = await auth_service.refresh_access_token(refresh_token)
+        return {
+            "status": "success",
+            **result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token refresh error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Token refresh failed")
+
+@api_router.get("/auth/me", response_model=UserResponse)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    """Get current user information"""
+    subscription = await supabase_client.get_user_subscription(current_user["id"])
+    
+    return UserResponse(
+        id=current_user["id"],
+        name=current_user["name"],
+        email=current_user["email"],
+        role=current_user["role"],
+        is_active=current_user["is_active"],
+        email_verified=current_user["email_verified"],
+        created_at=current_user["created_at"],
+        subscription_status=subscription["status"] if subscription else None
+    )
+
+# === SUBSCRIPTION ENDPOINTS ===
+
+@api_router.get("/subscription/plans", response_model=List[dict])
+async def get_subscription_plans():
+    """Get all available subscription plans"""
+    try:
+        plans = await supabase_client.get_all_subscription_plans()
+        return plans
+    except Exception as e:
+        logger.error(f"Error fetching subscription plans: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch subscription plans")
+
+@api_router.get("/subscription/current", response_model=dict)
+async def get_current_subscription(current_user: dict = Depends(get_current_user)):
+    """Get current user's subscription details"""
+    try:
+        subscription = await supabase_client.get_user_subscription(current_user["id"])
+        if not subscription:
+            raise HTTPException(status_code=404, detail="No active subscription found")
         
-        # Store encrypted data in MongoDB
-        try:
-            await db.clients.insert_one(encrypted_data)
-        except Exception as e:
-            logger.error(f"MongoDB error: {str(e)}")
+        plan = await supabase_client.get_subscription_plan_by_id(subscription["plan_id"])
         
-        # Send welcome notification
-        background_tasks.add_task(
-            notification_service.send_email,
-            client_data.email,
-            "Welcome to University Application Agent",
-            f"Hello {client_data.full_name},\n\nWe've successfully received your information and are ready to help with your university applications.\n\nBest regards,\nUniversity Application Agent"
-        )
+        return {
+            "subscription": subscription,
+            "plan": plan
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching subscription: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch subscription")
+
+# === ADMIN ENDPOINTS ===
+
+@api_router.get("/admin/users", response_model=List[dict])
+async def get_all_users(admin_user: dict = Depends(require_admin)):
+    """Get all users (admin only)"""
+    try:
+        users = await supabase_client.get_all_users()
+        return users
+    except Exception as e:
+        logger.error(f"Error fetching users: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch users")
+
+@api_router.get("/admin/stats", response_model=dict)
+async def get_admin_stats(admin_user: dict = Depends(require_admin)):
+    """Get system statistics (admin only)"""
+    try:
+        # Get basic counts
+        users = await supabase_client.get_all_users()
+        applications = await supabase_client.get_all_application_tasks()
         
-        return {"status": "success", "client_id": client_data.id, "message": "Client data stored successfully"}
+        stats = {
+            "total_users": len(users),
+            "total_applications": len(applications),
+            "active_users": len([u for u in users if u["is_active"]]),
+            "applications_by_status": {},
+            "recent_registrations": len([u for u in users if (datetime.utcnow() - u["created_at"]).days <= 7])
+        }
+        
+        # Count applications by status
+        for app in applications:
+            status = app.get("status", "unknown")
+            stats["applications_by_status"][status] = stats["applications_by_status"].get(status, 0) + 1
+        
+        return stats
+    except Exception as e:
+        logger.error(f"Error fetching admin stats: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch statistics")
+
+# === ENHANCED CLIENT ENDPOINTS (with authentication) ===
+
+@api_router.post("/clients", response_model=dict)
+async def create_client(
+    client_data: ClientData, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(check_usage_limits)
+):
+    """Store client data in Supabase database with encryption"""
+    try:
+        # Add user context to client data
+        client_dict = client_data.dict()
+        client_dict["user_id"] = current_user["id"]
+        
+        # Store in Supabase database
+        result = await supabase_client.create_client(client_dict)
+        
+        if result and 'id' in result:
+            client_id = result['id']
+            
+            # Track usage
+            await supabase_client.track_usage(current_user["id"], "client", client_id)
+            
+            # Send welcome notification (placeholder - implement as needed)
+            # background_tasks.add_task(
+            #     notification_service.send_welcome_notification,
+            #     client_data.email,
+            #     client_data.full_name,
+            #     client_data.phone
+            # )
+        
+            return {"status": "success", "client_id": client_id, "message": "Client data stored successfully"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to create client")
     except Exception as e:
         logger.error(f"Error storing client data: {str(e)}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Failed to store client data: {str(e)}")
 
 @api_router.get("/clients", response_model=List[dict])
-async def get_clients():
-    """Get all clients from database"""
+async def get_clients(current_user: dict = Depends(get_current_user)):
+    """Get all clients for the current user"""
     try:
-        # Return from mock database
-        return mock_db["clients"]
+        clients = await supabase_client.get_user_clients(current_user["id"])
+        return clients
     except Exception as e:
         logger.error(f"Error fetching clients: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch clients: {str(e)}")
@@ -353,37 +535,30 @@ async def execute_agent_command(command: AgentCommand, background_tasks: Backgro
 
 @api_router.get("/applications")
 async def get_applications():
-    """Get all application tasks"""
+    """Get all application tasks from Supabase"""
     try:
-        # Return from mock database
-        return mock_db["application_tasks"]
+        applications = await supabase_client.get_all_application_tasks()
+        return applications
     except Exception as e:
         logger.error(f"Error fetching applications: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch applications: {str(e)}")
 
 @api_router.get("/applications/status/{client_id}")
 async def get_client_applications(client_id: str):
-    """Get applications for specific client"""
+    """Get applications for specific client from Supabase"""
     try:
-        # Return from mock database
-        return [app for app in mock_db["application_tasks"] if app["client_id"] == client_id]
+        applications = await supabase_client.get_client_application_tasks(client_id)
+        return applications
     except Exception as e:
         logger.error(f"Error fetching client applications: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch client applications: {str(e)}")
 
 @api_router.get("/analytics/{client_id}")
 async def get_client_analytics(client_id: str):
-    """Get analytics and insights for a client"""
+    """Get analytics and insights for a client from Supabase"""
     try:
-        analytics = await app_monitor.get_client_analytics(client_id)
-        insights = await app_monitor.generate_insights(client_id)
-        deadlines = await app_monitor.check_deadlines(client_id)
-        
-        return {
-            "analytics": analytics,
-            "insights": insights,
-            "deadlines": deadlines
-        }
+        analytics = await supabase_client.get_client_analytics(client_id)
+        return analytics
     except Exception as e:
         logger.error(f"Error fetching analytics: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch analytics: {str(e)}")
@@ -658,7 +833,6 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup on shutdown"""
     await agent.cleanup()
-    client.close()
     logger.info("Autonomous University Application Agent shut down")
 
 # Daily monitoring scheduler (runs in separate thread)
