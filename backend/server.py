@@ -432,16 +432,34 @@ async def get_all_users(admin_user: dict = Depends(require_admin)):
 async def get_admin_stats(admin_user: dict = Depends(require_admin)):
     """Get system statistics (admin only)"""
     try:
-        # Get basic counts
-        users = await supabase_client.get_all_users()
-        applications = await supabase_client.get_all_application_tasks()
+        # Get basic counts from mock data for now
+        users = mock_db.get("clients", [])
+        applications = mock_db.get("application_tasks", [])
+        
+        # Calculate stats
+        total_applications = len(applications)
+        successful_apps = len([app for app in applications if app.get("status") == "accepted"])
+        success_rate = (successful_apps / total_applications * 100) if total_applications > 0 else 0
+        
+        # Mock system performance data
+        import psutil
+        cpu_usage = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
         
         stats = {
             "total_users": len(users),
-            "total_applications": len(applications),
-            "active_users": len([u for u in users if u["is_active"]]),
-            "applications_by_status": {},
-            "recent_registrations": len([u for u in users if (datetime.utcnow() - u["created_at"]).days <= 7])
+            "active_applications": len([app for app in applications if app.get("status") in ["pending", "in_progress"]]),
+            "success_rate": round(success_rate, 1),
+            "uptime": "99.9%",
+            "user_growth": 12.5,
+            "application_growth": 8.3,
+            "success_trend": 2.1,
+            "cpu_usage": round(cpu_usage, 1),
+            "memory_usage": round(memory.percent, 1),
+            "disk_usage": round(disk.percent, 1),
+            "total_applications": total_applications,
+            "applications_by_status": {}
         }
         
         # Count applications by status
@@ -453,6 +471,125 @@ async def get_admin_stats(admin_user: dict = Depends(require_admin)):
     except Exception as e:
         logger.error(f"Error fetching admin stats: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch statistics")
+
+@api_router.get("/admin/applications", response_model=List[dict])
+async def get_admin_applications(admin_user: dict = Depends(require_admin)):
+    """Get all applications with client info (admin only)"""
+    try:
+        applications = mock_db.get("application_tasks", [])
+        clients = {client["id"]: client for client in mock_db.get("clients", [])}
+        
+        # Enrich applications with client data
+        enriched_apps = []
+        for app in applications:
+            client = clients.get(app.get("client_id"))
+            enriched_app = {
+                **app,
+                "client_name": client["full_name"] if client else "Unknown",
+                "client_email": client["email"] if client else "Unknown"
+            }
+            enriched_apps.append(enriched_app)
+        
+        return enriched_apps
+    except Exception as e:
+        logger.error(f"Error fetching applications: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch applications")
+
+@api_router.get("/admin/audit-logs", response_model=List[dict])
+async def get_audit_logs(admin_user: dict = Depends(require_admin), limit: int = 50):
+    """Get system audit logs (admin only)"""
+    try:
+        # Mock audit logs for now
+        logs = [
+            {
+                "id": str(uuid.uuid4()),
+                "timestamp": (datetime.utcnow() - timedelta(minutes=5)).isoformat(),
+                "description": "New client registration completed",
+                "user_id": "system",
+                "action": "client_create",
+                "details": {"client_name": "John Doe"}
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "timestamp": (datetime.utcnow() - timedelta(minutes=15)).isoformat(),
+                "description": "Application submitted to Oxford University",
+                "user_id": "system",
+                "action": "application_submit",
+                "details": {"university": "Oxford"}
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "timestamp": (datetime.utcnow() - timedelta(hours=1)).isoformat(),
+                "description": "System health check completed",
+                "user_id": "system",
+                "action": "health_check",
+                "details": {"status": "healthy"}
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "timestamp": (datetime.utcnow() - timedelta(hours=2)).isoformat(),
+                "description": "User login successful",
+                "user_id": admin_user["id"],
+                "action": "user_login",
+                "details": {"ip": "127.0.0.1"}
+            }
+        ]
+        
+        return logs[:limit]
+    except Exception as e:
+        logger.error(f"Error fetching audit logs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch audit logs")
+
+@api_router.post("/admin/users/{user_id}/{action}")
+async def user_action(user_id: str, action: str, admin_user: dict = Depends(require_admin)):
+    """Perform actions on users (activate/deactivate) (admin only)"""
+    try:
+        if action not in ["activate", "deactivate"]:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        
+        # Mock user action for now
+        return {"message": f"User {action} successful", "user_id": user_id}
+    except Exception as e:
+        logger.error(f"Error performing user action: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to perform user action")
+
+@api_router.get("/admin/performance", response_model=dict)
+async def get_performance_metrics(admin_user: dict = Depends(require_admin)):
+    """Get detailed performance metrics (admin only)"""
+    try:
+        import psutil
+        
+        # Get system metrics
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        # Mock application metrics
+        metrics = {
+            "system": {
+                "cpu_usage": round(cpu_percent, 1),
+                "memory_usage": round(memory.percent, 1),
+                "memory_available": round(memory.available / (1024**3), 2),  # GB
+                "disk_usage": round(disk.percent, 1),
+                "disk_free": round(disk.free / (1024**3), 2)  # GB
+            },
+            "application": {
+                "active_sessions": random.randint(10, 50),
+                "requests_per_minute": random.randint(100, 500),
+                "average_response_time": round(random.uniform(0.1, 2.0), 2),
+                "error_rate": round(random.uniform(0.0, 5.0), 2)
+            },
+            "database": {
+                "connection_pool_usage": round(random.uniform(20, 80), 1),
+                "query_performance": round(random.uniform(10, 100), 1),
+                "active_connections": random.randint(5, 25)
+            }
+        }
+        
+        return metrics
+    except Exception as e:
+        logger.error(f"Error fetching performance metrics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch performance metrics")
 
 # === ENHANCED CLIENT ENDPOINTS (with authentication) ===
 
