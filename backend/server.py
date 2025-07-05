@@ -14,6 +14,7 @@ import asyncio
 import json
 import traceback
 import random
+import psutil
 
 # Import new services
 from automation.browser_automation import EnhancedBrowserAutomation
