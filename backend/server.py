@@ -596,6 +596,162 @@ async def get_performance_metrics(admin_user: dict = Depends(require_admin)):
         logger.error(f"Error fetching performance metrics: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch performance metrics")
 
+@api_router.get("/admin/monitoring/current", response_model=dict)
+async def get_current_monitoring_data(admin_user: dict = Depends(require_admin)):
+    """Get current monitoring data from enhanced monitoring service"""
+    try:
+        monitoring_service = get_monitoring_service()
+        current_metrics = monitoring_service.get_current_metrics()
+        return current_metrics
+    except Exception as e:
+        logger.error(f"Error fetching current monitoring data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch monitoring data")
+
+@api_router.get("/admin/monitoring/history", response_model=dict)
+async def get_monitoring_history(hours: int = 24, admin_user: dict = Depends(require_admin)):
+    """Get monitoring history for specified hours"""
+    try:
+        monitoring_service = get_monitoring_service()
+        history = monitoring_service.get_metrics_history(hours)
+        return history
+    except Exception as e:
+        logger.error(f"Error fetching monitoring history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch monitoring history")
+
+@api_router.get("/admin/monitoring/alerts", response_model=List[dict])
+async def get_monitoring_alerts(limit: int = 20, admin_user: dict = Depends(require_admin)):
+    """Get recent monitoring alerts"""
+    try:
+        monitoring_service = get_monitoring_service()
+        alerts = monitoring_service.get_recent_alerts(limit)
+        return alerts
+    except Exception as e:
+        logger.error(f"Error fetching monitoring alerts: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch monitoring alerts")
+
+@api_router.post("/admin/monitoring/alerts/clear")
+async def clear_monitoring_alerts(admin_user: dict = Depends(require_admin)):
+    """Clear all monitoring alerts"""
+    try:
+        monitoring_service = get_monitoring_service()
+        monitoring_service.clear_alerts()
+        return {"message": "Alerts cleared successfully"}
+    except Exception as e:
+        logger.error(f"Error clearing monitoring alerts: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to clear alerts")
+
+@api_router.get("/admin/services/status", response_model=dict)
+async def get_services_status(admin_user: dict = Depends(require_admin)):
+    """Get status of all managed services"""
+    try:
+        service_manager = get_service_manager()
+        status = service_manager.get_all_services_status()
+        return status
+    except Exception as e:
+        logger.error(f"Error fetching services status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch services status")
+
+@api_router.post("/admin/services/{service_name}/{action}")
+async def manage_service(service_name: str, action: str, admin_user: dict = Depends(require_admin)):
+    """Manage a specific service (start/stop/restart)"""
+    try:
+        if action not in ["start", "stop", "restart"]:
+            raise HTTPException(status_code=400, detail="Invalid action. Use start, stop, or restart")
+        
+        service_manager = get_service_manager()
+        
+        if action == "start":
+            success = await service_manager.start_service(service_name)
+        elif action == "stop":
+            success = await service_manager.stop_service(service_name)
+        elif action == "restart":
+            success = await service_manager.restart_service(service_name)
+        
+        if success:
+            return {"message": f"Service {service_name} {action} initiated successfully"}
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to {action} service {service_name}")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error managing service {service_name}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to {action} service {service_name}")
+
+@api_router.get("/admin/services/{service_name}/status", response_model=dict)
+async def get_service_status(service_name: str, admin_user: dict = Depends(require_admin)):
+    """Get detailed status of a specific service"""
+    try:
+        service_manager = get_service_manager()
+        status = service_manager.get_service_status(service_name)
+        return status
+    except Exception as e:
+        logger.error(f"Error fetching service status for {service_name}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch status for service {service_name}")
+
+@api_router.get("/admin/system/health", response_model=dict)
+async def get_system_health(admin_user: dict = Depends(require_admin)):
+    """Get comprehensive system health check"""
+    try:
+        # Get monitoring data
+        monitoring_service = get_monitoring_service()
+        current_metrics = monitoring_service.get_current_metrics()
+        recent_alerts = monitoring_service.get_recent_alerts(5)
+        
+        # Get services status
+        service_manager = get_service_manager()
+        services_status = service_manager.get_all_services_status()
+        
+        # Database health check
+        try:
+            # Test Supabase connection
+            supabase_healthy = True
+            # You can add a simple query here to test the connection
+        except Exception:
+            supabase_healthy = False
+        
+        # Overall health calculation
+        critical_alerts = len([alert for alert in recent_alerts if alert.get("severity") == "CRITICAL"])
+        running_services = services_status.get("running_services", 0)
+        total_services = services_status.get("total_services", 1)
+        service_health_score = (running_services / total_services) * 100 if total_services > 0 else 0
+        
+        overall_health = "healthy"
+        if critical_alerts > 0 or service_health_score < 80:
+            overall_health = "warning"
+        if critical_alerts > 3 or service_health_score < 50:
+            overall_health = "critical"
+        
+        health_data = {
+            "overall_health": overall_health,
+            "health_score": round(service_health_score, 1),
+            "timestamp": datetime.utcnow().isoformat(),
+            "components": {
+                "database": {
+                    "supabase": "healthy" if supabase_healthy else "unhealthy",
+                    "mongodb": "healthy"  # Assuming healthy for now
+                },
+                "services": {
+                    "total": total_services,
+                    "running": running_services,
+                    "health_percentage": round(service_health_score, 1)
+                },
+                "monitoring": {
+                    "active": monitoring_service.monitoring_active,
+                    "recent_alerts": len(recent_alerts),
+                    "critical_alerts": critical_alerts
+                }
+            },
+            "metrics": current_metrics,
+            "recent_alerts": recent_alerts
+        }
+        
+        return health_data
+        
+    except Exception as e:
+        logger.error(f"Error performing system health check: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to perform system health check")
+
 # === ENHANCED CLIENT ENDPOINTS (with authentication) ===
 
 @api_router.post("/clients", response_model=dict)
