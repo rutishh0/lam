@@ -34,6 +34,7 @@ import {
 import toast, { Toaster } from 'react-hot-toast';
 import Analytics from './components/Analytics';
 import DocumentUpload from './components/DocumentUpload';
+import AdminPanel from './components/AdminPanel';
 import './App.css';
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
