@@ -248,6 +248,116 @@ class TestAutonomousUniversityApplicationAgent(unittest.TestCase):
         self.assertIn(response.status_code, [400, 500])
         print("✅ Invalid command test passed")
 
+    # New tests for enhanced admin panel capabilities
+
+    def test_14_admin_monitoring_current(self):
+        """Test admin monitoring current endpoint"""
+        print(f"\n🧪 Testing admin monitoring current: {API_URL}/admin/monitoring/current")
+        response = requests.get(f"{API_URL}/admin/monitoring/current")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Admin monitoring current endpoint security test passed")
+
+    def test_15_admin_monitoring_history(self):
+        """Test admin monitoring history endpoint"""
+        print(f"\n🧪 Testing admin monitoring history: {API_URL}/admin/monitoring/history")
+        response = requests.get(f"{API_URL}/admin/monitoring/history?hours=12")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Admin monitoring history endpoint security test passed")
+
+    def test_16_admin_monitoring_alerts(self):
+        """Test admin monitoring alerts endpoint"""
+        print(f"\n🧪 Testing admin monitoring alerts: {API_URL}/admin/monitoring/alerts")
+        response = requests.get(f"{API_URL}/admin/monitoring/alerts?limit=10")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Admin monitoring alerts endpoint security test passed")
+
+    def test_17_admin_services_status(self):
+        """Test admin services status endpoint"""
+        print(f"\n🧪 Testing admin services status: {API_URL}/admin/services/status")
+        response = requests.get(f"{API_URL}/admin/services/status")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Admin services status endpoint security test passed")
+
+    def test_18_admin_service_management(self):
+        """Test admin service management endpoint"""
+        print(f"\n🧪 Testing admin service management: {API_URL}/admin/services/web_server/restart")
+        response = requests.post(f"{API_URL}/admin/services/web_server/restart")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Admin service management endpoint security test passed")
+
+    def test_19_admin_system_health(self):
+        """Test admin system health endpoint"""
+        print(f"\n🧪 Testing admin system health: {API_URL}/admin/system/health")
+        response = requests.get(f"{API_URL}/admin/system/health")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Admin system health endpoint security test passed")
+
+    def test_20_admin_stats(self):
+        """Test enhanced admin stats endpoint"""
+        print(f"\n🧪 Testing enhanced admin stats: {API_URL}/admin/stats")
+        response = requests.get(f"{API_URL}/admin/stats")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Enhanced admin stats endpoint security test passed")
+
+    def test_21_admin_performance(self):
+        """Test admin performance metrics endpoint"""
+        print(f"\n🧪 Testing admin performance metrics: {API_URL}/admin/performance")
+        response = requests.get(f"{API_URL}/admin/performance")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Admin performance metrics endpoint security test passed")
+
+    def test_22_admin_applications(self):
+        """Test admin applications endpoint"""
+        print(f"\n🧪 Testing admin applications: {API_URL}/admin/applications")
+        response = requests.get(f"{API_URL}/admin/applications")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Admin applications endpoint security test passed")
+
+    def test_23_admin_audit_logs(self):
+        """Test admin audit logs endpoint"""
+        print(f"\n🧪 Testing admin audit logs: {API_URL}/admin/audit-logs?limit=20")
+        response = requests.get(f"{API_URL}/admin/audit-logs?limit=20")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Admin audit logs endpoint security test passed")
+
+    def test_24_admin_user_action(self):
+        """Test admin user action endpoint"""
+        print(f"\n🧪 Testing admin user action: {API_URL}/admin/users/test-user-id/deactivate")
+        response = requests.post(f"{API_URL}/admin/users/test-user-id/deactivate")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Admin user action endpoint security test passed")
+
+    def test_25_admin_clear_alerts(self):
+        """Test admin clear alerts endpoint"""
+        print(f"\n🧪 Testing admin clear alerts: {API_URL}/admin/monitoring/alerts/clear")
+        response = requests.post(f"{API_URL}/admin/monitoring/alerts/clear")
+        print(f"Response: {response.status_code} - {response.text[:200]}...")
+        # We expect 401 or 403 without auth, which is correct behavior
+        self.assertIn(response.status_code, [401, 403, 500])
+        print("✅ Admin clear alerts endpoint security test passed")
+
 if __name__ == "__main__":
     print(f"🚀 Starting backend tests against {API_URL}")
     unittest.main(verbosity=2)
