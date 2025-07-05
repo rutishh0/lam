@@ -296,7 +296,11 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Enhanced Admin Panel"
+    - "GCP-Ready Service Manager" 
+    - "Enhanced Monitoring System"
+    - "Enhanced Admin API Endpoints"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
