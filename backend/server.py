@@ -16,6 +16,10 @@ import traceback
 import random
 import psutil
 
+# Import enhanced services
+from monitoring.enhanced_monitor import get_monitoring_service
+from services.gcp_ready_manager import get_service_manager
+
 # Import new services
 from automation.browser_automation import EnhancedBrowserAutomation
 from security.encryption import DataEncryption, SecureCredentialStorage
