@@ -77,6 +77,12 @@ class TestAutonomousUniversityApplicationAgent(unittest.TestCase):
                 "transcript": "base64encodedstring"
             }
         }
+        
+        # Admin user credentials (mock)
+        self.admin_credentials = {
+            "email": "admin@example.com",
+            "password": "admin123"
+        }
 
     def test_01_api_root(self):
         """Test the API root endpoint"""
