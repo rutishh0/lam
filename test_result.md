@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Build a fully autonomous Agentic program that can autofill university applications for a client based on the courses and universities they choose. The program should read the files about the client stored on our database, then go to the relevant university application sites, create accounts for our client (and store all the login details securely on our database without encryption), and then begin filling in all the application details based on the data about the client present in the database and then submit the application."
+user_problem_statement: "Build a fully autonomous Agentic program that can autofill university applications for a client based on the courses and universities they choose. The program should read the files about the client stored on our database, then go to the relevant university application sites, create accounts for our client (and store all the login details securely on our database without encryption), and then begin filling in all the application details based on the data about the client present in the database and then submit the application. ENHANCEMENT: Enhance its technical capabilities to run entirely on GCP while interfacing with the supabase database for info. Also, make sure that my admin panel is proper and up and running for it."
 
 backend:
   - task: "Supabase Integration"
