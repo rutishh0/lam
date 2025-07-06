@@ -60,6 +60,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import Analytics from './components/Analytics';
 import DocumentUpload from './components/DocumentUpload';
 import AdminPanel from './components/AdminPanel';
+import NewClientPage from './pages/NewClientPage';
 import './App.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
