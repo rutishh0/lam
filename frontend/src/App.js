@@ -2319,6 +2319,14 @@ function App() {
               } 
             />
             <Route 
+              path="/clients/new" 
+              element={
+                <ProtectedRoute>
+                  <NewClientPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
               path="/applications" 
               element={
                 <ProtectedRoute>
