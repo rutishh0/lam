@@ -4,87 +4,30 @@ Supabase client for university application agent
 import logging
 import os
 import json
-import random
+import uuid
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
+from supabase import create_client, Client
 
 logger = logging.getLogger(__name__)
 
 class SupabaseClient:
-    """Mock Supabase client for testing"""
+    """Real Supabase client implementation"""
     
     def __init__(self):
-        self.api_url = os.environ.get("SUPABASE_URL", "https://mock-supabase-url.com")
-        self.api_key = os.environ.get("SUPABASE_KEY", "mock-supabase-key")
+        self.api_url = os.environ.get("SUPABASE_URL")
+        self.api_key = os.environ.get("SUPABASE_KEY")
         
-        # Mock database
-        self.db = {
-            "clients": [],
-            "applications": [],
-            "users": [
-                {
-                    "id": "admin-user-id",
-                    "name": "Admin User",
-                    "email": "admin@example.com",
-                    "role": "admin",
-                    "is_active": True,
-                    "email_verified": True,
-                    "created_at": (datetime.utcnow() - timedelta(days=30)).isoformat()
-                },
-                {
-                    "id": "regular-user-id",
-                    "name": "Regular User",
-                    "email": "user@example.com",
-                    "role": "user",
-                    "is_active": True,
-                    "email_verified": True,
-                    "created_at": (datetime.utcnow() - timedelta(days=15)).isoformat()
-                }
-            ],
-            "subscriptions": [
-                {
-                    "id": "subscription-1",
-                    "user_id": "admin-user-id",
-                    "plan_id": "plan-premium",
-                    "status": "active",
-                    "start_date": (datetime.utcnow() - timedelta(days=30)).isoformat(),
-                    "end_date": (datetime.utcnow() + timedelta(days=335)).isoformat()
-                },
-                {
-                    "id": "subscription-2",
-                    "user_id": "regular-user-id",
-                    "plan_id": "plan-basic",
-                    "status": "active",
-                    "start_date": (datetime.utcnow() - timedelta(days=15)).isoformat(),
-                    "end_date": (datetime.utcnow() + timedelta(days=350)).isoformat()
-                }
-            ],
-            "plans": [
-                {
-                    "id": "plan-basic",
-                    "name": "Basic Plan",
-                    "description": "Basic features for individual users",
-                    "price": 9.99,
-                    "features": ["5 applications", "Basic support", "Standard automation"],
-                    "limits": {
-                        "max_applications": 5,
-                        "max_clients": 3
-                    }
-                },
-                {
-                    "id": "plan-premium",
-                    "name": "Premium Plan",
-                    "description": "Advanced features for power users",
-                    "price": 29.99,
-                    "features": ["Unlimited applications", "Priority support", "Advanced automation", "Analytics"],
-                    "limits": {
-                        "max_applications": -1,  # Unlimited
-                        "max_clients": -1  # Unlimited
-                    }
-                }
-            ],
-            "usage": []
-        }
+        if not self.api_url or not self.api_key:
+            raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
+        
+        # Initialize Supabase client
+        self.client: Client = create_client(self.api_url, self.api_key)
+        
+        logger.info(f"Initialized Supabase client with URL: {self.api_url}")
+        
+        # Initialize default data
+        self._initialize_default_data()
         
     def table(self, table_name: str):
         """Get table reference"""
