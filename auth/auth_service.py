@@ -63,7 +63,7 @@ class AuthService:
                 "name": user_data.name,
                 "email": user_data.email,
                 "password_hash": user_data.password,  # Use 'password_hash' to match your schema
-                "role": "student",  # Use 'student' instead of 'user' to match your database constraint
+                "role": "customer",  # Try 'customer' - this is common in SaaS apps
                 "is_active": True,
                 "email_verified": False
                 # created_at will be set by the database function
