@@ -182,7 +182,8 @@ class SupabaseClient:
     async def get_client_analytics(self, client_id: str) -> Dict[str, Any]:
         """Get analytics for a client"""
         try:
-            client_apps = [app for app in self.db["applications"] if app.get("client_id") == client_id]
+            result = self.client.table('application_tasks').select('*').eq('client_id', client_id).execute()
+            client_apps = result.data or []
             
             total_apps = len(client_apps)
             status_counts = {}
@@ -203,17 +204,66 @@ class SupabaseClient:
     async def get_all_users(self) -> List[Dict[str, Any]]:
         """Get all users"""
         try:
-            return self.db["users"]
+            result = self.client.table('users').select('*').execute()
+            return result.data or []
         except Exception as e:
             logger.error(f"Error getting all users: {str(e)}")
             return []
     
+    async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new user"""
+        try:
+            # Ensure user has an ID
+            if 'id' not in user_data:
+                user_data['id'] = str(uuid.uuid4())
+            
+            # Set created_at if not present
+            if 'created_at' not in user_data:
+                user_data['created_at'] = datetime.utcnow().isoformat()
+            
+            # Insert into Supabase
+            result = self.client.table('users').insert(user_data).execute()
+            
+            if result.data:
+                return {"id": result.data[0]["id"], "status": "success", "user": result.data[0]}
+            else:
+                return {"error": "Failed to create user"}
+                
+        except Exception as e:
+            logger.error(f"Error creating user: {str(e)}")
+            return {"error": str(e)}
+    
+    async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """Get user by email"""
+        try:
+            result = self.client.table('users').select('*').eq('email', email).execute()
+            
+            if result.data:
+                return result.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Error getting user by email: {str(e)}")
+            return None
+    
+    async def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get user by ID"""
+        try:
+            result = self.client.table('users').select('*').eq('id', user_id).execute()
+            
+            if result.data:
+                return result.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Error getting user by ID: {str(e)}")
+            return None
+    
     async def get_user_subscription(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get subscription for a user"""
         try:
-            for subscription in self.db["subscriptions"]:
-                if subscription["user_id"] == user_id:
-                    return subscription
+            result = self.client.table('user_subscriptions').select('*').eq('user_id', user_id).execute()
+            
+            if result.data:
+                return result.data[0]
             return None
         except Exception as e:
             logger.error(f"Error getting user subscription: {str(e)}")
@@ -222,7 +272,8 @@ class SupabaseClient:
     async def get_all_subscription_plans(self) -> List[Dict[str, Any]]:
         """Get all subscription plans"""
         try:
-            return self.db["plans"]
+            result = self.client.table('subscription_plans').select('*').execute()
+            return result.data or []
         except Exception as e:
             logger.error(f"Error getting subscription plans: {str(e)}")
             return []
@@ -230,9 +281,10 @@ class SupabaseClient:
     async def get_subscription_plan_by_id(self, plan_id: str) -> Optional[Dict[str, Any]]:
         """Get subscription plan by ID"""
         try:
-            for plan in self.db["plans"]:
-                if plan["id"] == plan_id:
-                    return plan
+            result = self.client.table('subscription_plans').select('*').eq('id', plan_id).execute()
+            
+            if result.data:
+                return result.data[0]
             return None
         except Exception as e:
             logger.error(f"Error getting subscription plan: {str(e)}")
@@ -242,41 +294,18 @@ class SupabaseClient:
         """Track resource usage"""
         try:
             usage_record = {
-                "id": f"usage-{len(self.db['usage'])+1}",
+                "id": str(uuid.uuid4()),
                 "user_id": user_id,
                 "resource_type": resource_type,
                 "resource_id": resource_id,
                 "timestamp": datetime.utcnow().isoformat()
             }
-            self.db["usage"].append(usage_record)
-            return True
+            
+            result = self.client.table('usage_tracking').insert(usage_record).execute()
+            return bool(result.data)
         except Exception as e:
             logger.error(f"Error tracking usage: {str(e)}")
             return False
-
-class TableQuery:
-    """Mock table query builder"""
-    
-    def __init__(self, client, table_name):
-        self.client = client
-        self.table_name = table_name
-        self._select_fields = "*"
-        self._limit_val = None
-        
-    def select(self, fields):
-        """Select fields"""
-        self._select_fields = fields
-        return self
-    
-    def limit(self, limit_val):
-        """Limit results"""
-        self._limit_val = limit_val
-        return self
-    
-    def execute(self):
-        """Execute query"""
-        # Mock execution - return empty result
-        return {"data": []}
 
 # Singleton instance
 _supabase_client = None
