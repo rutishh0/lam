@@ -95,9 +95,10 @@ class SupabaseClient:
     async def get_client(self, client_id: str) -> Optional[Dict[str, Any]]:
         """Get client by ID"""
         try:
-            for client in self.db["clients"]:
-                if client["id"] == client_id:
-                    return client
+            result = self.client.table('clients').select('*').eq('id', client_id).execute()
+            
+            if result.data:
+                return result.data[0]
             return None
         except Exception as e:
             logger.error(f"Error getting client: {str(e)}")
@@ -106,7 +107,8 @@ class SupabaseClient:
     async def get_user_clients(self, user_id: str) -> List[Dict[str, Any]]:
         """Get all clients for a user"""
         try:
-            return [client for client in self.db["clients"] if client.get("user_id") == user_id]
+            result = self.client.table('clients').select('*').eq('user_id', user_id).execute()
+            return result.data or []
         except Exception as e:
             logger.error(f"Error getting user clients: {str(e)}")
             return []
@@ -114,9 +116,22 @@ class SupabaseClient:
     async def create_application(self, application_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new application"""
         try:
-            # Add to mock database
-            self.db["applications"].append(application_data)
-            return {"id": application_data["id"], "status": "success"}
+            # Ensure application has an ID
+            if 'id' not in application_data:
+                application_data['id'] = str(uuid.uuid4())
+            
+            # Set created_at if not present
+            if 'created_at' not in application_data:
+                application_data['created_at'] = datetime.utcnow().isoformat()
+            
+            # Insert into Supabase
+            result = self.client.table('application_tasks').insert(application_data).execute()
+            
+            if result.data:
+                return {"id": result.data[0]["id"], "status": "success"}
+            else:
+                return {"error": "Failed to create application"}
+                
         except Exception as e:
             logger.error(f"Error creating application: {str(e)}")
             return {"error": str(e)}
@@ -124,9 +139,10 @@ class SupabaseClient:
     async def get_application(self, application_id: str) -> Optional[Dict[str, Any]]:
         """Get application by ID"""
         try:
-            for application in self.db["applications"]:
-                if application["id"] == application_id:
-                    return application
+            result = self.client.table('application_tasks').select('*').eq('id', application_id).execute()
+            
+            if result.data:
+                return result.data[0]
             return None
         except Exception as e:
             logger.error(f"Error getting application: {str(e)}")
@@ -135,7 +151,8 @@ class SupabaseClient:
     async def get_all_application_tasks(self) -> List[Dict[str, Any]]:
         """Get all application tasks"""
         try:
-            return self.db["applications"]
+            result = self.client.table('application_tasks').select('*').execute()
+            return result.data or []
         except Exception as e:
             logger.error(f"Error getting all applications: {str(e)}")
             return []
@@ -143,7 +160,8 @@ class SupabaseClient:
     async def get_client_application_tasks(self, client_id: str) -> List[Dict[str, Any]]:
         """Get application tasks for a client"""
         try:
-            return [app for app in self.db["applications"] if app.get("client_id") == client_id]
+            result = self.client.table('application_tasks').select('*').eq('client_id', client_id).execute()
+            return result.data or []
         except Exception as e:
             logger.error(f"Error getting client applications: {str(e)}")
             return []
@@ -151,12 +169,12 @@ class SupabaseClient:
     async def update_application_status(self, application_id: str, status: str) -> bool:
         """Update application status"""
         try:
-            for application in self.db["applications"]:
-                if application["id"] == application_id:
-                    application["status"] = status
-                    application["last_checked"] = datetime.utcnow().isoformat()
-                    return True
-            return False
+            result = self.client.table('application_tasks').update({
+                "status": status,
+                "last_checked": datetime.utcnow().isoformat()
+            }).eq('id', application_id).execute()
+            
+            return bool(result.data)
         except Exception as e:
             logger.error(f"Error updating application status: {str(e)}")
             return False
