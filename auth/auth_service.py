@@ -58,17 +58,15 @@ class AuthService:
             if existing_user:
                 raise HTTPException(status_code=400, detail="Email already registered")
             
-            # Create user in real Supabase database
-            user_id = str(uuid.uuid4())
+            # Create user data for Supabase (don't include uuid - let database generate it)
             new_user = {
-                "uuid": user_id,  # Use 'uuid' to match your database schema
                 "name": user_data.name,
                 "email": user_data.email,
                 "password_hash": user_data.password,  # Use 'password_hash' to match your schema
                 "role": "user",
                 "is_active": True,
-                "email_verified": False,
-                "created_at": datetime.utcnow().isoformat()
+                "email_verified": False
+                # created_at will be set by the database function
             }
             
             # Create user in Supabase
@@ -77,13 +75,16 @@ class AuthService:
             if "error" in result:
                 raise HTTPException(status_code=500, detail=f"Failed to create user: {result['error']}")
             
-            # Generate tokens
-            token_data = self._generate_tokens(new_user)
+            # Get the created user data
+            created_user = result.get("user", {})
+            
+            # Generate tokens using the created user data
+            token_data = self._generate_tokens(created_user)
             
             # Return user data without password
-            user_response = {**new_user}
+            user_response = {**created_user}
             user_response.pop("password_hash", None)
-            user_response["id"] = user_response.pop("uuid")  # Return 'id' for frontend compatibility
+            user_response["id"] = user_response.get("uuid")  # Return 'id' for frontend compatibility
             
             return {
                 "user": user_response,
