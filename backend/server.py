@@ -454,16 +454,16 @@ async def get_all_users(admin_user: dict = Depends(require_admin)):
 async def get_admin_stats(admin_user: dict = Depends(require_admin)):
     """Get system statistics (admin only)"""
     try:
-        # Get basic counts from mock data for now
-        users = mock_db.get("clients", [])
-        applications = mock_db.get("application_tasks", [])
+        # Get real data from Supabase
+        users = await supabase_client.get_all_users()
+        applications = await supabase_client.get_all_application_tasks()
         
         # Calculate stats
         total_applications = len(applications)
         successful_apps = len([app for app in applications if app.get("status") == "accepted"])
         success_rate = (successful_apps / total_applications * 100) if total_applications > 0 else 0
         
-        # Mock system performance data
+        # System performance data
         import psutil
         cpu_usage = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
