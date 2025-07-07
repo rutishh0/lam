@@ -145,8 +145,7 @@ class AuthService:
                 raise HTTPException(status_code=401, detail="Invalid refresh token")
             
             # Get user
-            users = await self.supabase_client.get_all_users()
-            user = next((u for u in users if u["id"] == user_id), None)
+            user = await self.supabase_client.get_user_by_id(user_id)
             
             if not user:
                 raise HTTPException(status_code=401, detail="User not found")
