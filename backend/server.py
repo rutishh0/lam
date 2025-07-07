@@ -96,7 +96,7 @@ api_router = APIRouter(prefix="/api")
 cors_origins = [
     "http://localhost:3000", 
     "http://127.0.0.1:3000", 
-    "https://8142d1b2-e9a6-419c-92a6-a8302219ed8c.preview.emergentagent.com"
+    "https://fc368f58-030a-4d3e-8fe3-d490c5163ec6.preview.emergentagent.com"
 ]
 
 app.add_middleware(
