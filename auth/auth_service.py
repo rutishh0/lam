@@ -54,12 +54,12 @@ class AuthService:
         """Register a new user"""
         try:
             # Check if email already exists
-            users = await self.supabase_client.get_all_users()
-            if any(user["email"] == user_data.email for user in users):
+            existing_user = await self.supabase_client.get_user_by_email(user_data.email)
+            if existing_user:
                 raise HTTPException(status_code=400, detail="Email already registered")
             
-            # Create user in mock database
-            user_id = f"user-{len(users)+1}"
+            # Create user in real Supabase database
+            user_id = str(uuid.uuid4())
             new_user = {
                 "id": user_id,
                 "name": user_data.name,
@@ -71,7 +71,11 @@ class AuthService:
                 "created_at": datetime.utcnow().isoformat()
             }
             
-            self.supabase_client.db["users"].append(new_user)
+            # Create user in Supabase
+            result = await self.supabase_client.create_user(new_user)
+            
+            if "error" in result:
+                raise HTTPException(status_code=500, detail=f"Failed to create user: {result['error']}")
             
             # Generate tokens
             token_data = self._generate_tokens(new_user)
