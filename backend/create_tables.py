@@ -5,6 +5,10 @@ Script to create necessary database tables in Supabase
 import os
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Add the backend directory to Python path
 backend_dir = Path(__file__).parent
