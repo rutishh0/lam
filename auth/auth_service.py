@@ -99,8 +99,7 @@ class AuthService:
         """Authenticate user and return tokens"""
         try:
             # Find user by email
-            users = await self.supabase_client.get_all_users()
-            user = next((u for u in users if u["email"] == login_data.email), None)
+            user = await self.supabase_client.get_user_by_email(login_data.email)
             
             if not user:
                 raise HTTPException(status_code=401, detail="Invalid credentials")
