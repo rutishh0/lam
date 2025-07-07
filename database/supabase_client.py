@@ -213,9 +213,9 @@ class SupabaseClient:
     async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new user"""
         try:
-            # Ensure user has an ID
-            if 'id' not in user_data:
-                user_data['id'] = str(uuid.uuid4())
+            # Ensure user has a UUID
+            if 'uuid' not in user_data:
+                user_data['uuid'] = str(uuid.uuid4())
             
             # Set created_at if not present
             if 'created_at' not in user_data:
@@ -225,7 +225,7 @@ class SupabaseClient:
             result = self.client.table('users').insert(user_data).execute()
             
             if result.data:
-                return {"id": result.data[0]["id"], "status": "success", "user": result.data[0]}
+                return {"id": result.data[0]["uuid"], "status": "success", "user": result.data[0]}
             else:
                 return {"error": "Failed to create user"}
                 
@@ -248,7 +248,7 @@ class SupabaseClient:
     async def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get user by ID"""
         try:
-            result = self.client.table('users').select('*').eq('id', user_id).execute()
+            result = self.client.table('users').select('*').eq('uuid', user_id).execute()
             
             if result.data:
                 return result.data[0]
