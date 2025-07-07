@@ -57,10 +57,11 @@ app = FastAPI(title="Autonomous University Application Agent")
 api_router = APIRouter(prefix="/api")
 
 # Configure CORS immediately after app creation
-cors_origins = os.getenv("CORS_ORIGINS", '["http://localhost:3000", "http://127.0.0.1:3000", "https://lam-nu.vercel.app"]')
-if isinstance(cors_origins, str):
-    import json
-    cors_origins = json.loads(cors_origins)
+cors_origins = [
+    "http://localhost:3000", 
+    "http://127.0.0.1:3000", 
+    "https://8142d1b2-e9a6-419c-92a6-a8302219ed8c.preview.emergentagent.com"
+]
 
 app.add_middleware(
     CORSMiddleware,
