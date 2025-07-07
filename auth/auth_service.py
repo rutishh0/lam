@@ -106,7 +106,7 @@ class AuthService:
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             
             # In real app, would verify password hash
-            if user.get("password") != login_data.password:
+            if user.get("password_hash") != login_data.password:
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             
             if not user.get("is_active", False):
@@ -117,7 +117,10 @@ class AuthService:
             
             # Return user data without password
             user_response = {**user}
-            user_response.pop("password", None)
+            user_response.pop("password_hash", None)
+            # Add 'id' field for frontend compatibility 
+            if "uuid" in user_response:
+                user_response["id"] = user_response["uuid"]
             
             return {
                 "user": user_response,
