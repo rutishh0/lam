@@ -19,15 +19,44 @@ import schedule
 import time
 from threading import Thread
 
-# Import enhanced services
-from monitoring.enhanced_monitor import get_monitoring_service
-from services.gcp_ready_manager import get_service_manager
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-# Import new services
-from automation.browser_automation import EnhancedBrowserAutomation
-from security.encryption import DataEncryption, SecureCredentialStorage
-from notifications.notification_service import NotificationService
-from monitoring.status_monitor import ApplicationMonitor, PerformanceMonitor
+# Import enhanced services - try/except for optional imports
+try:
+    from monitoring.enhanced_monitor import get_monitoring_service
+    monitoring_available = True
+except ImportError:
+    monitoring_available = False
+    logger.warning("Enhanced monitoring service not available")
+
+try:
+    from services.gcp_ready_manager import get_service_manager  
+    service_manager_available = True
+except ImportError:
+    service_manager_available = False
+    logger.warning("GCP service manager not available")
+
+# Import new services - try/except for optional imports
+try:
+    from automation.browser_automation import EnhancedBrowserAutomation
+    automation_available = True
+except ImportError:
+    automation_available = False
+    logger.warning("Browser automation not available")
+
+try:
+    from security.encryption import DataEncryption, SecureCredentialStorage
+    from notifications.notification_service import NotificationService
+    from monitoring.status_monitor import ApplicationMonitor, PerformanceMonitor
+    additional_services_available = True
+except ImportError:
+    additional_services_available = False
+    logger.warning("Additional services not available")
 from database.supabase_client import get_supabase_client, SupabaseClient
 
 # Import authentication services
