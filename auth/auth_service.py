@@ -187,8 +187,11 @@ class AuthService:
         """Create JWT access token"""
         expires = datetime.utcnow() + timedelta(seconds=JWT_EXPIRATION)
         
+        # Handle both 'id' and 'uuid' field names
+        user_id = user.get("id") or user.get("uuid")
+        
         payload = {
-            "sub": user["id"],
+            "sub": user_id,
             "name": user["name"],
             "email": user["email"],
             "role": user["role"],
@@ -202,8 +205,11 @@ class AuthService:
         """Create JWT refresh token"""
         expires = datetime.utcnow() + timedelta(seconds=REFRESH_EXPIRATION)
         
+        # Handle both 'id' and 'uuid' field names
+        user_id = user.get("id") or user.get("uuid")
+        
         payload = {
-            "sub": user["id"],
+            "sub": user_id,
             "type": "refresh",
             "exp": expires
         }
