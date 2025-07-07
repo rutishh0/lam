@@ -216,9 +216,12 @@ class SupabaseClient:
     async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new user"""
         try:
-            # Ensure user has a UUID
-            if 'uuid' not in user_data:
-                user_data['uuid'] = str(uuid.uuid4())
+            # Don't set UUID manually - let the database generate it with DEFAULT gen_random_uuid()
+            # Remove uuid if present and let database handle it
+            if 'uuid' in user_data:
+                del user_data['uuid']
+            if 'id' in user_data:
+                del user_data['id']
             
             # Set created_at if not present
             if 'created_at' not in user_data:
