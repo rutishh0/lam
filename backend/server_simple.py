@@ -18,7 +18,7 @@ app = FastAPI(title="UniAgent API")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://fc368f58-030a-4d3e-8fe3-d490c5163ec6.preview.emergentagent.com"],
+    allow_origins=["http://localhost:3000", "https://d7a0ac55-32a2-46e1-857b-d77484269258.preview.emergentagent.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
