@@ -231,8 +231,7 @@ async def get_current_user(authorization: str = Header(None)):
         
         # Get user from database
         supabase_client = get_supabase_client()
-        users = await supabase_client.get_all_users()
-        user = next((u for u in users if u["id"] == user_id), None)
+        user = await supabase_client.get_user_by_id(user_id)
         
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
