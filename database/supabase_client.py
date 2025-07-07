@@ -28,17 +28,66 @@ class SupabaseClient:
         
         # Initialize default data
         self._initialize_default_data()
-        
+    
+    def _initialize_default_data(self):
+        """Initialize default subscription plans and admin user if they don't exist"""
+        try:
+            # Check if plans exist, if not create them
+            existing_plans = self.client.table('subscription_plans').select('*').execute()
+            if not existing_plans.data:
+                default_plans = [
+                    {
+                        "id": "plan-basic",
+                        "name": "Basic Plan",
+                        "description": "Basic features for individual users",
+                        "price": 9.99,
+                        "features": ["5 applications", "Basic support", "Standard automation"],
+                        "limits": {
+                            "max_applications": 5,
+                            "max_clients": 3
+                        }
+                    },
+                    {
+                        "id": "plan-premium",
+                        "name": "Premium Plan",
+                        "description": "Advanced features for power users",
+                        "price": 29.99,
+                        "features": ["Unlimited applications", "Priority support", "Advanced automation", "Analytics"],
+                        "limits": {
+                            "max_applications": -1,  # Unlimited
+                            "max_clients": -1  # Unlimited
+                        }
+                    }
+                ]
+                for plan in default_plans:
+                    self.client.table('subscription_plans').insert(plan).execute()
+                logger.info("Initialized default subscription plans")
+        except Exception as e:
+            logger.warning(f"Could not initialize default data: {str(e)}")
+
     def table(self, table_name: str):
         """Get table reference"""
-        return TableQuery(self, table_name)
+        return self.client.table(table_name)
     
     async def create_client(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new client"""
         try:
-            # Add to mock database
-            self.db["clients"].append(client_data)
-            return {"id": client_data["id"], "status": "success"}
+            # Ensure client has an ID
+            if 'id' not in client_data:
+                client_data['id'] = str(uuid.uuid4())
+            
+            # Set created_at if not present
+            if 'created_at' not in client_data:
+                client_data['created_at'] = datetime.utcnow().isoformat()
+            
+            # Insert into Supabase
+            result = self.client.table('clients').insert(client_data).execute()
+            
+            if result.data:
+                return {"id": result.data[0]["id"], "status": "success"}
+            else:
+                return {"error": "Failed to create client"}
+                
         except Exception as e:
             logger.error(f"Error creating client: {str(e)}")
             return {"error": str(e)}
