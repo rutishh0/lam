@@ -97,14 +97,13 @@ cors_origins = [
     "http://localhost:3000", 
     "http://127.0.0.1:3000", 
     "https://fc368f58-030a-4d3e-8fe3-d490c5163ec6.preview.emergentagent.com",
-    "https://8142d1b2-e9a6-419c-9ea6-a8302219edac.preview.emergentagent.com",
-    "*"  # Allow all origins for development
+    "https://8142d1b2-e9a6-419c-9ea6-a8302219edac.preview.emergentagent.com"
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=cors_origins,
+    allow_origins=["*"],  # Allow all origins for development
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
