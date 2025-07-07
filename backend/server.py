@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks, Depends, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -77,6 +77,18 @@ from auth.auth_service import (
     require_admin,
     check_usage_limits
 )
+
+# Import automation services
+try:
+    from automation.automation_manager import automation_manager
+    from automation.websocket_handler import handle_automation_websocket, ws_manager
+    from automation.mock_automation import mock_automation_manager
+    automation_available = True
+    mock_mode = False
+except ImportError:
+    automation_available = False
+    mock_mode = False
+    logger.warning("Advanced automation services not available")
 
 # Custom JSON encoder to handle datetime objects
 class DateTimeEncoder(json.JSONEncoder):
@@ -364,8 +376,8 @@ async def health_check():
     try:
         # Check database connection
         client = get_supabase_client()
-        # Simple query to verify connection
-        result = client.table('users').select('id').limit(1).execute()
+        # Simple query to verify connection using the proper client
+        result = client.client.table('users').select('id').limit(1).execute()
         
         return {
             "status": "healthy",
@@ -1129,6 +1141,177 @@ async def get_system_health(admin_user: dict = Depends(require_admin)):
         logger.error(f"Error performing system health check: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to perform system health check")
 
+# === AUTOMATION CONTROL ENDPOINTS ===
+
+def get_automation_manager():
+    """Get the appropriate automation manager (real or mock)"""
+    return mock_automation_manager if mock_mode else automation_manager
+
+@api_router.post("/admin/automation/sessions/create", response_model=dict)
+async def create_automation_session(
+    client_id: str,
+    university_name: str,
+    admin_user: dict = Depends(require_admin)
+):
+    """Create a new automation session"""
+    if not automation_available:
+        raise HTTPException(status_code=503, detail="Automation services not available")
+    
+    try:
+        manager = get_automation_manager()
+        session_id = await manager.create_session(client_id, university_name)
+        
+        session_info = {
+            "session_id": session_id,
+            "client_id": client_id,
+            "university_name": university_name,
+            "status": "created",
+            "created_at": datetime.utcnow().isoformat(),
+            "mode": "mock" if mock_mode else "real"
+        }
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "message": f"Automation session created successfully ({'Mock Mode' if mock_mode else 'Real Mode'})",
+            "session_info": session_info
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to create automation session: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create session: {str(e)}")
+
+@api_router.get("/admin/automation/sessions", response_model=List[dict])
+async def get_automation_sessions(admin_user: dict = Depends(require_admin)):
+    """Get all automation sessions"""
+    if not automation_available:
+        raise HTTPException(status_code=503, detail="Automation services not available")
+    
+    try:
+        manager = get_automation_manager()
+        sessions = await manager.get_all_sessions()
+        return sessions
+    except Exception as e:
+        logger.error(f"Failed to get automation sessions: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get sessions")
+
+@api_router.get("/admin/automation/sessions/{session_id}", response_model=dict)
+async def get_automation_session(session_id: str, admin_user: dict = Depends(require_admin)):
+    """Get specific automation session details"""
+    if not automation_available:
+        raise HTTPException(status_code=503, detail="Automation services not available")
+    
+    try:
+        session_info = await automation_manager.get_session_info(session_id)
+        if not session_info:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return session_info
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get automation session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get session")
+
+@api_router.post("/admin/automation/sessions/{session_id}/start")
+async def start_automation_session(
+    session_id: str,
+    client_data: dict,
+    admin_user: dict = Depends(require_admin)
+):
+    """Start automation for a session"""
+    if not automation_available:
+        raise HTTPException(status_code=503, detail="Automation services not available")
+    
+    try:
+        manager = get_automation_manager()
+        success = await manager.start_automation(session_id, client_data)
+        mode_text = " (Mock Mode)" if mock_mode else " (Real Mode)"
+        return {"success": success, "message": f"Automation {'started' if success else 'failed to start'}{mode_text}"}
+    except Exception as e:
+        logger.error(f"Failed to start automation for session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start automation")
+
+@api_router.post("/admin/automation/sessions/{session_id}/pause")
+async def pause_automation_session(session_id: str, admin_user: dict = Depends(require_admin)):
+    """Pause automation for a session"""
+    if not automation_available:
+        raise HTTPException(status_code=503, detail="Automation services not available")
+    
+    try:
+        success = await automation_manager.pause_session(session_id)
+        return {"success": success, "message": "Automation paused" if success else "Failed to pause automation"}
+    except Exception as e:
+        logger.error(f"Failed to pause automation for session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to pause automation")
+
+@api_router.post("/admin/automation/sessions/{session_id}/resume")
+async def resume_automation_session(session_id: str, admin_user: dict = Depends(require_admin)):
+    """Resume automation for a session"""
+    if not automation_available:
+        raise HTTPException(status_code=503, detail="Automation services not available")
+    
+    try:
+        success = await automation_manager.resume_session(session_id)
+        return {"success": success, "message": "Automation resumed" if success else "Failed to resume automation"}
+    except Exception as e:
+        logger.error(f"Failed to resume automation for session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to resume automation")
+
+@api_router.post("/admin/automation/sessions/{session_id}/stop")
+async def stop_automation_session(session_id: str, admin_user: dict = Depends(require_admin)):
+    """Stop automation for a session"""
+    if not automation_available:
+        raise HTTPException(status_code=503, detail="Automation services not available")
+    
+    try:
+        success = await automation_manager.stop_session(session_id)
+        return {"success": success, "message": "Automation stopped" if success else "Failed to stop automation"}
+    except Exception as e:
+        logger.error(f"Failed to stop automation for session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to stop automation")
+
+@api_router.get("/admin/automation/sessions/{session_id}/screenshot")
+async def get_session_screenshot(session_id: str, admin_user: dict = Depends(require_admin)):
+    """Get latest screenshot from automation session"""
+    if not automation_available:
+        raise HTTPException(status_code=503, detail="Automation services not available")
+    
+    try:
+        manager = get_automation_manager()
+        screenshot = await manager.capture_screenshot(session_id)
+        return {
+            "screenshot": screenshot,
+            "timestamp": datetime.utcnow().isoformat(),
+            "session_id": session_id,
+            "mode": "mock" if mock_mode else "real"
+        }
+    except Exception as e:
+        logger.error(f"Failed to get screenshot for session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get screenshot")
+
+@api_router.delete("/admin/automation/sessions/{session_id}")
+async def delete_automation_session(session_id: str, admin_user: dict = Depends(require_admin)):
+    """Delete automation session and cleanup resources"""
+    if not automation_available:
+        raise HTTPException(status_code=503, detail="Automation services not available")
+    
+    try:
+        await automation_manager.cleanup_session(session_id)
+        return {"success": True, "message": "Session deleted successfully"}
+    except Exception as e:
+        logger.error(f"Failed to delete session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete session")
+
+# WebSocket endpoint for real-time automation control
+@app.websocket("/ws/automation/{session_id}")
+async def automation_websocket_endpoint(websocket: WebSocket, session_id: str):
+    """WebSocket endpoint for real-time automation control"""
+    if not automation_available:
+        await websocket.close(code=1003, reason="Automation services not available")
+        return
+    
+    await handle_automation_websocket(websocket, session_id)
+
 # === ENHANCED CLIENT ENDPOINTS (with authentication) ===
 
 @api_router.post("/clients", response_model=dict)
@@ -1428,6 +1611,29 @@ logger = logging.getLogger(__name__)
 async def startup_event():
     """Initialize agent on startup"""
     logger.info("Autonomous University Application Agent starting up...")
+    
+    # Initialize automation manager
+    if automation_available:
+        try:
+            success = await automation_manager.initialize()
+            if success:
+                logger.info("Automation Manager initialized successfully")
+                globals()['mock_mode'] = False
+            else:
+                logger.warning("Automation Manager initialization failed - switching to mock mode")
+                await mock_automation_manager.initialize()
+                globals()['mock_mode'] = True
+                logger.info("Mock Automation Manager initialized as fallback")
+        except Exception as e:
+            logger.error(f"Failed to initialize Automation Manager: {e}")
+            logger.warning("Switching to mock automation mode")
+            try:
+                await mock_automation_manager.initialize()
+                globals()['mock_mode'] = True
+                logger.info("Mock Automation Manager initialized as fallback")
+            except Exception as mock_e:
+                logger.error(f"Failed to initialize Mock Automation Manager: {mock_e}")
+                globals()['automation_available'] = False
     
     # Add some test data to mock database
     if not mock_db["clients"]:

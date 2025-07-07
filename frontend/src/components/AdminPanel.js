@@ -27,11 +27,14 @@ import {
   UserX,
   Calendar,
   Globe,
-  Zap
+  Zap,
+  Bot,
+  Play
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import AutomationControlPanel from './AutomationControlPanel';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 const API = `${BACKEND_URL}/api`;
 
 const AdminPanel = () => {
@@ -455,6 +458,7 @@ const AdminPanel = () => {
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'applications', label: 'Applications', icon: FileText },
+    { id: 'automation', label: 'AI Automation', icon: Bot },
     { id: 'system', label: 'System', icon: Settings },
     { id: 'logs', label: 'Audit Logs', icon: Shield }
   ];
@@ -509,6 +513,7 @@ const AdminPanel = () => {
           {activeTab === 'overview' && <OverviewTab />}
           {activeTab === 'users' && <UsersTab />}
           {activeTab === 'applications' && <ApplicationsTab />}
+          {activeTab === 'automation' && <AutomationControlPanel />}
           {activeTab === 'system' && <SystemTab />}
           {activeTab === 'logs' && (
             <div className="bg-white rounded-lg shadow-md p-6">
