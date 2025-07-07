@@ -498,13 +498,14 @@ async def get_admin_stats(admin_user: dict = Depends(require_admin)):
 async def get_admin_applications(admin_user: dict = Depends(require_admin)):
     """Get all applications with client info (admin only)"""
     try:
-        applications = mock_db.get("application_tasks", [])
-        clients = {client["id"]: client for client in mock_db.get("clients", [])}
+        applications = await supabase_client.get_all_application_tasks()
+        clients = await supabase_client.get_all_clients()
+        clients_dict = {client["id"]: client for client in clients}
         
         # Enrich applications with client data
         enriched_apps = []
         for app in applications:
-            client = clients.get(app.get("client_id"))
+            client = clients_dict.get(app.get("client_id"))
             enriched_app = {
                 **app,
                 "client_name": client["full_name"] if client else "Unknown",
