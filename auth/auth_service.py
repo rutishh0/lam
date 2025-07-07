@@ -5,6 +5,7 @@ import logging
 import os
 import json
 import jwt
+import uuid
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, EmailStr, Field
