@@ -72,9 +72,9 @@ class SupabaseClient:
     async def create_client(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new client"""
         try:
-            # Ensure client has an ID
-            if 'id' not in client_data:
-                client_data['id'] = str(uuid.uuid4())
+            # Ensure client has a UUID (your schema likely uses uuid too)
+            if 'uuid' not in client_data and 'id' not in client_data:
+                client_data['uuid'] = str(uuid.uuid4())
             
             # Set created_at if not present
             if 'created_at' not in client_data:
@@ -84,7 +84,10 @@ class SupabaseClient:
             result = self.client.table('clients').insert(client_data).execute()
             
             if result.data:
-                return {"id": result.data[0]["id"], "status": "success"}
+                # Return the UUID from the database response
+                record = result.data[0]
+                client_id = record.get("uuid") or record.get("id")
+                return {"id": client_id, "status": "success"}
             else:
                 return {"error": "Failed to create client"}
                 
