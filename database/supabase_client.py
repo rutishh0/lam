@@ -230,10 +230,12 @@ class SupabaseClient:
             # Insert into Supabase
             result = self.client.table('users').insert(user_data).execute()
             
-            if result.data:
-                return {"id": result.data[0]["uuid"], "status": "success", "user": result.data[0]}
+            if result.data and len(result.data) > 0:
+                created_user = result.data[0]
+                user_id = created_user.get("uuid") or created_user.get("id")
+                return {"id": user_id, "status": "success", "user": created_user}
             else:
-                return {"error": "Failed to create user"}
+                return {"error": "Failed to create user - no data returned"}
                 
         except Exception as e:
             logger.error(f"Error creating user: {str(e)}")
