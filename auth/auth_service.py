@@ -61,10 +61,10 @@ class AuthService:
             # Create user in real Supabase database
             user_id = str(uuid.uuid4())
             new_user = {
-                "id": user_id,
+                "uuid": user_id,  # Use 'uuid' to match your database schema
                 "name": user_data.name,
                 "email": user_data.email,
-                "password": user_data.password,  # In real app, would be hashed
+                "password_hash": user_data.password,  # Use 'password_hash' to match your schema
                 "role": "user",
                 "is_active": True,
                 "email_verified": False,
@@ -82,7 +82,8 @@ class AuthService:
             
             # Return user data without password
             user_response = {**new_user}
-            user_response.pop("password", None)
+            user_response.pop("password_hash", None)
+            user_response["id"] = user_response.pop("uuid")  # Return 'id' for frontend compatibility
             
             return {
                 "user": user_response,
