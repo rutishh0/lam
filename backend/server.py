@@ -110,12 +110,21 @@ app.add_middleware(
 # Initialize Supabase client
 supabase_client = get_supabase_client()
 
-# Initialize services
-encryption_service = DataEncryption()
-credential_storage = SecureCredentialStorage(encryption_service)
-notification_service = NotificationService()
-app_monitor = ApplicationMonitor(supabase_client, notification_service)
-perf_monitor = PerformanceMonitor()
+# Initialize services conditionally
+if additional_services_available:
+    encryption_service = DataEncryption()
+    credential_storage = SecureCredentialStorage(encryption_service)
+    notification_service = NotificationService()
+    app_monitor = ApplicationMonitor(supabase_client, notification_service)
+    perf_monitor = PerformanceMonitor()
+else:
+    encryption_service = None
+    credential_storage = None
+    notification_service = None
+    app_monitor = None
+    perf_monitor = None
+    logger.warning("Additional services not initialized due to import errors")
+
 auth_service = AuthService(supabase_client)
 
 # Data Models
