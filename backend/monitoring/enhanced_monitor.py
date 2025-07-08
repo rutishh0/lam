@@ -1,6 +1,6 @@
 """
 Enhanced Local Monitoring Service
-Provides comprehensive system monitoring capabilities that will be GCP-ready
+Provides comprehensive system monitoring capabilities for cloud deployment
 """
 import os
 import psutil
@@ -42,7 +42,7 @@ class ApplicationMetric:
 class LocalMonitoringService:
     """
     Enhanced monitoring service for local development
-    Structured to be easily migrated to GCP Cloud Monitoring
+    Structured for easy cloud deployment
     """
     
     def __init__(self, storage_path: str = "/tmp/monitoring_data"):
@@ -217,7 +217,7 @@ class LocalMonitoringService:
                 logger.warning(f"ALERT: {alert['message']}")
     
     async def _persist_metrics(self):
-        """Persist metrics to local storage (GCP-ready format)"""
+        """Persist metrics to local storage (cloud-ready format)"""
         try:
             # Create timestamped filename
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H")

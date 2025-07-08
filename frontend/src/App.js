@@ -632,7 +632,7 @@ const FeaturesPage = () => {
               { name: "FastAPI", description: "High-Performance Backend" },
               { name: "Playwright", description: "Web Automation Engine" },
               { name: "MongoDB", description: "Flexible Database" },
-              { name: "AWS/GCP", description: "Cloud Infrastructure" },
+              { name: "AWS", description: "Cloud Infrastructure" },
               { name: "Docker", description: "Containerization" },
               { name: "Redis", description: "Caching & Sessions" },
               { name: "Stripe", description: "Secure Payments" }

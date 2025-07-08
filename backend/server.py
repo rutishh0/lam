@@ -1,1739 +1,514 @@
-from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks, Depends, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
+"""
+Enhanced Backend Server with Real Automation
+"""
+
 import os
-import logging
-from pathlib import Path
-from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional, Dict, Any
-import uuid
-from datetime import datetime, timedelta
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, File, UploadFile, Form
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import asyncio
+import logging
 import json
-import traceback
-import random
-import psutil
-import schedule
-import time
-from threading import Thread
+from datetime import datetime
+from typing import Dict, Any, Optional, List
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Import enhanced services - try/except for optional imports
-try:
-    from monitoring.enhanced_monitor import get_monitoring_service
-    monitoring_available = True
-except ImportError:
-    monitoring_available = False
-    logger.warning("Enhanced monitoring service not available")
-
-try:
-    from services.gcp_ready_manager import get_service_manager  
-    service_manager_available = True
-except ImportError:
-    service_manager_available = False
-    logger.warning("GCP service manager not available")
-
-# Import new services - try/except for optional imports
-try:
-    from automation.browser_automation import EnhancedBrowserAutomation
-    automation_available = True
-except ImportError:
-    automation_available = False
-    logger.warning("Browser automation not available")
-
-try:
-    from security.encryption import DataEncryption, SecureCredentialStorage
-    from notifications.notification_service import NotificationService
-    from monitoring.status_monitor import ApplicationMonitor, PerformanceMonitor
-    additional_services_available = True
-except ImportError:
-    additional_services_available = False
-    logger.warning("Additional services not available")
-from database.supabase_client import get_supabase_client, SupabaseClient
-
-# Import authentication services
+# Local imports
 from auth.auth_service import (
-    AuthService, 
-    UserCreate, 
-    UserLogin, 
-    UserResponse, 
-    TokenResponse,
-    get_current_user,
-    require_admin,
-    check_usage_limits
+    create_user, authenticate_user, create_access_token, create_refresh_token,
+    get_current_user, get_current_active_user, User, Token, UserCreate,
+    update_user_plan, check_user_limits
+)
+from database.supabase_client import get_supabase_client, test_connection
+from automation.ai_enhanced_automation import AIEnhancedAutomation
+from automation.enhanced_data_parser import EnhancedDataParser
+from notifications.notification_service import NotificationService
+from monitoring.status_monitor import SystemMonitor
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Service manager removed - using simplified architecture
+
+# Global instances
+automation_manager = AutomationManager()
+notification_service = NotificationService()
+system_monitor = SystemMonitor()
+websocket_connections: Dict[str, WebSocket] = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifecycle"""
+    logger.info("Starting AI LAM Backend Server...")
+    
+    # Test database connection
+    if not test_connection():
+        logger.error("Failed to connect to database")
+        # Continue anyway for development
+    
+    # Start background tasks
+    asyncio.create_task(system_monitor.start_monitoring())
+    asyncio.create_task(cleanup_old_sessions())
+    
+    yield
+    
+    # Cleanup
+    logger.info("Shutting down AI LAM Backend Server...")
+
+# Create FastAPI app
+app = FastAPI(
+    title="AI LAM - Intelligent Form Automation API",
+    description="Backend API for AI-powered form automation system",
+    version="2.0.0",
+    lifespan=lifespan
 )
 
-# Import automation services
-try:
-    from automation.automation_manager import automation_manager
-    from automation.websocket_handler import handle_automation_websocket, ws_manager
-    from automation.mock_automation import mock_automation_manager
-    automation_available = True
-    mock_mode = False
-except ImportError:
-    automation_available = False
-    mock_mode = False
-    logger.warning("Advanced automation services not available")
-
-# Custom JSON encoder to handle datetime objects
-class DateTimeEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        return super().default(obj)
-
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
-
-# Create the main app
-app = FastAPI(title="Autonomous University Application Agent")
-api_router = APIRouter(prefix="/api")
-
-# Configure CORS immediately after app creation
-cors_origins = [
-    "http://localhost:3000", 
-    "http://127.0.0.1:3000", 
-    "https://d7a0ac55-32a2-46e1-857b-d77484269258.preview.emergentagent.com",
-    "https://d7a0ac55-32a2-46e1-857b-d77484269258.preview.emergentagent.com"
-]
-
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=["*"],  # Configure appropriately for production
     allow_credentials=True,
-    allow_origins=["*"],  # Allow all origins for development
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize Supabase client
-supabase_client = get_supabase_client()
+# Static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Initialize services conditionally
-if additional_services_available:
-    encryption_service = DataEncryption()
-    credential_storage = SecureCredentialStorage(encryption_service)
-    notification_service = NotificationService()
-    app_monitor = ApplicationMonitor(supabase_client, notification_service)
-    perf_monitor = PerformanceMonitor()
-else:
-    encryption_service = None
-    credential_storage = None
-    notification_service = None
-    app_monitor = None
-    perf_monitor = None
-    logger.warning("Additional services not initialized due to import errors")
-
-auth_service = AuthService(supabase_client)
-
-# Data Models
-class ClientData(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    full_name: str
-    email: str
-    phone: str
-    date_of_birth: str
-    nationality: str
-    address: str
-    personal_statement: str
-    academic_history: List[Dict[str, Any]]
-    course_preferences: List[Dict[str, Any]]
-    documents: Dict[str, str]  # Base64 encoded documents
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    def dict(self, **kwargs):
-        data = super().dict(**kwargs)
-        # Convert datetime to string
-        if 'created_at' in data and isinstance(data['created_at'], datetime):
-            data['created_at'] = data['created_at'].isoformat()
-        return data
-
-class ApplicationTask(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_id: str
-    university_name: str
-    course_name: str
-    course_code: str
-    application_url: str
-    status: str = "pending"  # pending, in_progress, submitted, accepted, rejected
-    credentials: Dict[str, str] = {}  # username, password
-    application_data: Dict[str, Any] = {}
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_checked: Optional[datetime] = None
-    error_log: List[str] = []
-    
-    def dict(self, **kwargs):
-        data = super().dict(**kwargs)
-        # Convert datetime to string
-        if 'created_at' in data and isinstance(data['created_at'], datetime):
-            data['created_at'] = data['created_at'].isoformat()
-        if 'last_checked' in data and isinstance(data['last_checked'], datetime):
-            data['last_checked'] = data['last_checked'].isoformat()
-        return data
-
-class AgentCommand(BaseModel):
-    command_type: str  # "create_applications", "check_status", "monitor_daily"
-    client_id: str
-    parameters: Dict[str, Any] = {}
-
-class MockUniversityApplication(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    university_name: str
-    applicant_name: str
-    email: str
-    course: str
-    personal_statement: str
-    status: str = "submitted"
-    submitted_at: datetime = Field(default_factory=datetime.utcnow)
-    documents: Dict[str, str] = {}
-    
-    def dict(self, **kwargs):
-        data = super().dict(**kwargs)
-        # Convert datetime to string
-        if 'submitted_at' in data and isinstance(data['submitted_at'], datetime):
-            data['submitted_at'] = data['submitted_at'].isoformat()
-        return data
-
-# Top 10 UK Universities Configuration
-TOP_UNIVERSITIES = [
-    {"name": "University of Oxford", "code": "oxford", "url": "https://www.ox.ac.uk/admissions"},
-    {"name": "University of Cambridge", "code": "cambridge", "url": "https://www.cam.ac.uk/admissions"},
-    {"name": "Imperial College London", "code": "imperial", "url": "https://www.imperial.ac.uk/study/apply"},
-    {"name": "London School of Economics", "code": "lse", "url": "https://www.lse.ac.uk/study-at-lse/how-to-apply"},
-    {"name": "University College London", "code": "ucl", "url": "https://www.ucl.ac.uk/prospective-students/how-apply"},
-    {"name": "King's College London", "code": "kcl", "url": "https://www.kcl.ac.uk/study/how-to-apply"},
-    {"name": "University of Edinburgh", "code": "edinburgh", "url": "https://www.ed.ac.uk/studying/how-to-apply"},
-    {"name": "University of Manchester", "code": "manchester", "url": "https://www.manchester.ac.uk/study/how-to-apply"},
-    {"name": "University of Warwick", "code": "warwick", "url": "https://warwick.ac.uk/study/how-to-apply"},
-    {"name": "University of Bristol", "code": "bristol", "url": "https://www.bristol.ac.uk/study/how-to-apply"}
-]
-
-# Mock database for testing
-mock_db = {
-    "clients": [],
-    "application_tasks": [],
-    "mock_applications": []
-}
-
-# Autonomous Agent Class
-class UniversityApplicationAgent:
-    def __init__(self):
-        self.browser_automation = EnhancedBrowserAutomation()
-        self.performance_monitor = perf_monitor
-        
-    async def initialize_browser(self):
-        """Initialize Playwright browser with anti-detection measures"""
-        try:
-            # Import here to avoid errors if not installed
-            from playwright.async_api import async_playwright
-            from fake_useragent import UserAgent
-            ua = UserAgent()
-            
-            self.playwright = await async_playwright().start()
-            
-            # Launch browser with stealth settings
-            self.browser = await self.playwright.chromium.launch(
-                headless=True,  # Set to True for production
-                args=[
-                    '--disable-blink-features=AutomationControlled',
-                    '--disable-dev-shm-usage',
-                    '--no-sandbox',
-                    '--disable-web-security',
-                    '--disable-features=VizDisplayCompositor',
-                    '--disable-extensions',
-                    '--disable-plugins',
-                    '--disable-images',
-                    '--disable-javascript',
-                    '--user-agent=' + ua.random
-                ]
-            )
-            
-            # Create context with realistic settings
-            self.context = await self.browser.new_context(
-                viewport={'width': 1920, 'height': 1080},
-                user_agent=ua.random,
-                locale='en-GB',
-                timezone_id='Europe/London'
-            )
-            
-            # Add anti-detection scripts
-            await self.context.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined,
-                });
-                
-                Object.defineProperty(navigator, 'languages', {
-                    get: () => ['en-GB', 'en-US', 'en'],
-                });
-                
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5],
-                });
-            """)
-        except Exception as e:
-            logger.error(f"Error initializing browser: {str(e)}")
-            # Return a mock context for testing
-            return None
-    
-    async def create_university_account(self, university_data: dict, client_data: ClientData) -> dict:
-        """Create account on university application portal"""
-        try:
-            if not self.context:
-                await self.initialize_browser()
-            
-            # Mock account creation logic
-            credentials = {
-                "username": f"{client_data.email}",
-                "password": f"UniApp{random.randint(1000, 9999)}!",
-                "created_at": datetime.utcnow().isoformat()
-            }
-            
-            return credentials
-            
-        except Exception as e:
-            logger.error(f"Error creating account for {university_data['name']}: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Account creation failed: {str(e)}")
-    
-    async def fill_application_form(self, university_data: dict, client_data: ClientData, credentials: dict) -> dict:
-        """Fill university application form autonomously"""
-        try:
-            if not self.context:
-                await self.initialize_browser()
-            
-            # Mock form submission
-            application_data = {
-                "personal_details": {
-                    "name": client_data.full_name,
-                    "email": client_data.email,
-                    "phone": client_data.phone,
-                    "dob": client_data.date_of_birth,
-                    "nationality": client_data.nationality,
-                    "address": client_data.address
-                },
-                "academic_history": client_data.academic_history,
-                "personal_statement": client_data.personal_statement,
-                "course_preferences": client_data.course_preferences,
-                "submitted_at": datetime.utcnow().isoformat(),
-                "status": "submitted"
-            }
-            
-            return application_data
-            
-        except Exception as e:
-            logger.error(f"Error filling application for {university_data['name']}: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Application filling failed: {str(e)}")
-    
-    async def check_application_status(self, task: ApplicationTask) -> str:
-        """Check application status autonomously"""
-        try:
-            if not self.context:
-                await self.initialize_browser()
-            
-            # Simulate status update
-            statuses = ["submitted", "under_review", "interview_scheduled", "accepted", "rejected"]
-            current_status = random.choice(statuses)
-            
-            return current_status
-            
-        except Exception as e:
-            logger.error(f"Error checking status for {task.university_name}: {str(e)}")
-            return "error"
-    
-    async def cleanup(self):
-        """Cleanup browser resources"""
-        if self.context:
-            await self.context.close()
-        if self.browser:
-            await self.browser.close()
-        if self.playwright:
-            await self.playwright.stop()
-
-# Global agent instance
-agent = UniversityApplicationAgent()
-
-# API Routes
-@api_router.get("/")
-async def root():
-    return {"message": "Autonomous University Application Agent API"}
-
+# Health check endpoint
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for deployment monitoring"""
-    try:
-        # Check database connection
-        client = get_supabase_client()
-        # Simple query to verify connection using the proper client
-        result = client.client.table('users').select('id').limit(1).execute()
+    """Health check endpoint"""
+    db_status = "connected" if test_connection() else "disconnected"
         
         return {
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
+        "database": db_status,
+        "version": "2.0.0",
             "services": {
-                "database": "connected",
-                "api": "running"
-            },
-            "version": "2.0.0"
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
-            "version": "2.0.0"
-        }
-
-# === AUTHENTICATION ENDPOINTS ===
-
-@api_router.post("/auth/register", response_model=dict)
-async def register_user(user_data: UserCreate):
-    """Register a new user account"""
-    try:
-        result = await auth_service.register_user(user_data)
-        return {
-            "status": "success",
-            "message": "Account created successfully",
-            "token": result["token"],
-            "refresh_token": result["refresh_token"],
-            "user": result["user"]
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Registration failed")
-
-@api_router.post("/auth/login", response_model=dict)
-async def login_user(login_data: UserLogin):
-    """Authenticate user and return tokens"""
-    try:
-        result = await auth_service.login_user(login_data)
-        return {
-            "status": "success",
-            "message": "Login successful",
-            "token": result["token"],
-            "refresh_token": result["refresh_token"],
-            "user": result["user"]
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Login failed")
-
-@api_router.post("/auth/refresh", response_model=dict)
-async def refresh_token(refresh_token: str):
-    """Refresh access token"""
-    try:
-        result = await auth_service.refresh_access_token(refresh_token)
-        return {
-            "status": "success",
-            **result
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Token refresh error: {str(e)}")
-        raise HTTPException(status_code=401, detail="Token refresh failed")
-
-@api_router.get("/auth/me", response_model=UserResponse)
-async def get_current_user_info(current_user: dict = Depends(get_current_user)):
-    """Get current user information"""
-    subscription = await supabase_client.get_user_subscription(current_user["id"])
-    
-    return UserResponse(
-        id=current_user["id"],
-        name=current_user["name"],
-        email=current_user["email"],
-        role=current_user["role"],
-        is_active=current_user["is_active"],
-        email_verified=current_user["email_verified"],
-        created_at=current_user["created_at"],
-        subscription_status=subscription["status"] if subscription else None
-    )
-
-# === SUBSCRIPTION ENDPOINTS ===
-
-@api_router.get("/subscription/plans", response_model=List[dict])
-async def get_subscription_plans():
-    """Get all available subscription plans"""
-    try:
-        plans = await supabase_client.get_all_subscription_plans()
-        return plans
-    except Exception as e:
-        logger.error(f"Error fetching subscription plans: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch subscription plans")
-
-@api_router.get("/subscription/current", response_model=dict)
-async def get_current_subscription(current_user: dict = Depends(get_current_user)):
-    """Get current user's subscription details"""
-    try:
-        subscription = await supabase_client.get_user_subscription(current_user["id"])
-        if not subscription:
-            raise HTTPException(status_code=404, detail="No active subscription found")
-        
-        plan = await supabase_client.get_subscription_plan_by_id(subscription["plan_id"])
-        
-        return {
-            "subscription": subscription,
-            "plan": plan
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error fetching subscription: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch subscription")
-
-# === ADMIN ENDPOINTS ===
-
-@api_router.get("/admin/users", response_model=List[dict])
-async def get_all_users(admin_user: dict = Depends(require_admin)):
-    """Get all users (admin only)"""
-    try:
-        users = await supabase_client.get_all_users()
-        return users
-    except Exception as e:
-        logger.error(f"Error fetching users: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch users")
-
-@api_router.get("/admin/stats", response_model=dict)
-async def get_admin_stats(admin_user: dict = Depends(require_admin)):
-    """Get system statistics (admin only)"""
-    try:
-        # Get real data from Supabase
-        users = await supabase_client.get_all_users()
-        applications = await supabase_client.get_all_application_tasks()
-        
-        # Calculate stats
-        total_applications = len(applications)
-        successful_apps = len([app for app in applications if app.get("status") == "accepted"])
-        success_rate = (successful_apps / total_applications * 100) if total_applications > 0 else 0
-        
-        # System performance data
-        import psutil
-        cpu_usage = psutil.cpu_percent(interval=1)
-        memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
-        
-        stats = {
-            "total_users": len(users),
-            "active_applications": len([app for app in applications if app.get("status") in ["pending", "in_progress"]]),
-            "success_rate": round(success_rate, 1),
-            "uptime": "99.9%",
-            "user_growth": 12.5,
-            "application_growth": 8.3,
-            "success_trend": 2.1,
-            "cpu_usage": round(cpu_usage, 1),
-            "memory_usage": round(memory.percent, 1),
-            "disk_usage": round(disk.percent, 1),
-            "total_applications": total_applications,
-            "applications_by_status": {}
-        }
-        
-        # Count applications by status
-        for app in applications:
-            status = app.get("status", "unknown")
-            stats["applications_by_status"][status] = stats["applications_by_status"].get(status, 0) + 1
-        
-        return stats
-    except Exception as e:
-        logger.error(f"Error fetching admin stats: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch statistics")
-
-@api_router.get("/admin/applications", response_model=List[dict])
-async def get_admin_applications(admin_user: dict = Depends(require_admin)):
-    """Get all applications with client info (admin only)"""
-    try:
-        applications = await supabase_client.get_all_application_tasks()
-        clients = await supabase_client.get_all_clients()
-        clients_dict = {client["id"]: client for client in clients}
-        
-        # Enrich applications with client data
-        enriched_apps = []
-        for app in applications:
-            client = clients_dict.get(app.get("client_id"))
-            enriched_app = {
-                **app,
-                "client_name": client["full_name"] if client else "Unknown",
-                "client_email": client["email"] if client else "Unknown"
-            }
-            enriched_apps.append(enriched_app)
-        
-        return enriched_apps
-    except Exception as e:
-        logger.error(f"Error fetching applications: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch applications")
-
-@api_router.get("/admin/audit-logs", response_model=List[dict])
-async def get_audit_logs(admin_user: dict = Depends(require_admin), limit: int = 50):
-    """Get system audit logs (admin only)"""
-    try:
-        # Mock audit logs for now
-        logs = [
-            {
-                "id": str(uuid.uuid4()),
-                "timestamp": (datetime.utcnow() - timedelta(minutes=5)).isoformat(),
-                "description": "New client registration completed",
-                "user_id": "system",
-                "action": "client_create",
-                "details": {"client_name": "John Doe"}
-            },
-            {
-                "id": str(uuid.uuid4()),
-                "timestamp": (datetime.utcnow() - timedelta(minutes=15)).isoformat(),
-                "description": "Application submitted to Oxford University",
-                "user_id": "system",
-                "action": "application_submit",
-                "details": {"university": "Oxford"}
-            },
-            {
-                "id": str(uuid.uuid4()),
-                "timestamp": (datetime.utcnow() - timedelta(hours=1)).isoformat(),
-                "description": "System health check completed",
-                "user_id": "system",
-                "action": "health_check",
-                "details": {"status": "healthy"}
-            },
-            {
-                "id": str(uuid.uuid4()),
-                "timestamp": (datetime.utcnow() - timedelta(hours=2)).isoformat(),
-                "description": "User login successful",
-                "user_id": admin_user["id"],
-                "action": "user_login",
-                "details": {"ip": "127.0.0.1"}
-            }
-        ]
-        
-        return logs[:limit]
-    except Exception as e:
-        logger.error(f"Error fetching audit logs: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch audit logs")
-
-@api_router.post("/admin/users/{user_id}/{action}")
-async def user_action(user_id: str, action: str, admin_user: dict = Depends(require_admin)):
-    """Perform actions on users (activate/deactivate) (admin only)"""
-    try:
-        if action not in ["activate", "deactivate"]:
-            raise HTTPException(status_code=400, detail="Invalid action")
-        
-        # Mock user action for now
-        return {"message": f"User {action} successful", "user_id": user_id}
-    except Exception as e:
-        logger.error(f"Error performing user action: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to perform user action")
-
-@api_router.get("/admin/performance", response_model=dict)
-async def get_performance_metrics(admin_user: dict = Depends(require_admin)):
-    """Get detailed performance metrics (admin only)"""
-    try:
-        import psutil
-        
-        # Get system metrics
-        cpu_percent = psutil.cpu_percent(interval=1)
-        memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
-        
-        # Mock application metrics
-        metrics = {
-            "system": {
-                "cpu_usage": round(cpu_percent, 1),
-                "memory_usage": round(memory.percent, 1),
-                "memory_available": round(memory.available / (1024**3), 2),  # GB
-                "disk_usage": round(disk.percent, 1),
-                "disk_free": round(disk.free / (1024**3), 2)  # GB
-            },
-            "application": {
-                "active_sessions": random.randint(10, 50),
-                "requests_per_minute": random.randint(100, 500),
-                "average_response_time": round(random.uniform(0.1, 2.0), 2),
-                "error_rate": round(random.uniform(0.0, 5.0), 2)
-            },
-            "database": {
-                "connection_pool_usage": round(random.uniform(20, 80), 1),
-                "query_performance": round(random.uniform(10, 100), 1),
-                "active_connections": random.randint(5, 25)
-            }
-        }
-        
-        return metrics
-    except Exception as e:
-        logger.error(f"Error fetching performance metrics: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch performance metrics")
-
-@api_router.get("/admin/monitoring/current", response_model=dict)
-async def get_current_monitoring_data(admin_user: dict = Depends(require_admin)):
-    """Get current monitoring data from enhanced monitoring service"""
-    try:
-        monitoring_service = get_monitoring_service()
-        current_metrics = monitoring_service.get_current_metrics()
-        return current_metrics
-    except Exception as e:
-        logger.error(f"Error fetching current monitoring data: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch monitoring data")
-
-@api_router.get("/admin/monitoring/history", response_model=dict)
-async def get_monitoring_history(hours: int = 24, admin_user: dict = Depends(require_admin)):
-    """Get monitoring history for specified hours"""
-    try:
-        monitoring_service = get_monitoring_service()
-        history = monitoring_service.get_metrics_history(hours)
-        return history
-    except Exception as e:
-        logger.error(f"Error fetching monitoring history: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch monitoring history")
-
-@api_router.get("/admin/monitoring/alerts", response_model=List[dict])
-async def get_monitoring_alerts(limit: int = 20, admin_user: dict = Depends(require_admin)):
-    """Get recent monitoring alerts"""
-    try:
-        monitoring_service = get_monitoring_service()
-        alerts = monitoring_service.get_recent_alerts(limit)
-        return alerts
-    except Exception as e:
-        logger.error(f"Error fetching monitoring alerts: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch monitoring alerts")
-
-@api_router.post("/admin/monitoring/alerts/clear")
-async def clear_monitoring_alerts(admin_user: dict = Depends(require_admin)):
-    """Clear all monitoring alerts"""
-    try:
-        monitoring_service = get_monitoring_service()
-        monitoring_service.clear_alerts()
-        return {"message": "Alerts cleared successfully"}
-    except Exception as e:
-        logger.error(f"Error clearing monitoring alerts: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to clear alerts")
-
-@api_router.get("/admin/services/status", response_model=dict)
-async def get_services_status(admin_user: dict = Depends(require_admin)):
-    """Get status of all managed services"""
-    try:
-        service_manager = get_service_manager()
-        status = service_manager.get_all_services_status()
-        return status
-    except Exception as e:
-        logger.error(f"Error fetching services status: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch services status")
-
-@api_router.post("/admin/services/{service_name}/{action}")
-async def manage_service(service_name: str, action: str, admin_user: dict = Depends(require_admin)):
-    """Manage a specific service (start/stop/restart)"""
-    try:
-        if action not in ["start", "stop", "restart"]:
-            raise HTTPException(status_code=400, detail="Invalid action. Use start, stop, or restart")
-        
-        service_manager = get_service_manager()
-        
-        if action == "start":
-            success = await service_manager.start_service(service_name)
-        elif action == "stop":
-            success = await service_manager.stop_service(service_name)
-        elif action == "restart":
-            success = await service_manager.restart_service(service_name)
-        
-        if success:
-            return {"message": f"Service {service_name} {action} initiated successfully"}
-        else:
-            raise HTTPException(status_code=500, detail=f"Failed to {action} service {service_name}")
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error managing service {service_name}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to {action} service {service_name}")
-
-@api_router.get("/admin/services/{service_name}/status", response_model=dict)
-async def get_service_status(service_name: str, admin_user: dict = Depends(require_admin)):
-    """Get detailed status of a specific service"""
-    try:
-        service_manager = get_service_manager()
-        status = service_manager.get_service_status(service_name)
-        return status
-    except Exception as e:
-        logger.error(f"Error fetching service status for {service_name}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch status for service {service_name}")
-
-@api_router.get("/admin/system/health", response_model=dict)
-async def get_system_health(admin_user: dict = Depends(require_admin)):
-    """Get comprehensive system health check"""
-    try:
-        # Get monitoring data
-        monitoring_service = get_monitoring_service()
-        current_metrics = monitoring_service.get_current_metrics()
-        recent_alerts = monitoring_service.get_recent_alerts(5)
-        
-        # Get services status
-        service_manager = get_service_manager()
-        services_status = service_manager.get_all_services_status()
-        
-        # Database health check
-        try:
-            # Test Supabase connection
-            supabase_healthy = True
-            # You can add a simple query here to test the connection
-        except Exception:
-            supabase_healthy = False
-        
-        # Overall health calculation
-        critical_alerts = len([alert for alert in recent_alerts if alert.get("severity") == "CRITICAL"])
-        running_services = services_status.get("running_services", 0)
-        total_services = services_status.get("total_services", 1)
-        service_health_score = (running_services / total_services) * 100 if total_services > 0 else 0
-        
-        overall_health = "healthy"
-        if critical_alerts > 0 or service_health_score < 80:
-            overall_health = "warning"
-        if critical_alerts > 3 or service_health_score < 50:
-            overall_health = "critical"
-        
-        health_data = {
-            "overall_health": overall_health,
-            "health_score": round(service_health_score, 1),
-            "timestamp": datetime.utcnow().isoformat(),
-            "components": {
-                "database": {
-                    "supabase": "healthy" if supabase_healthy else "unhealthy",
-                    "mongodb": "healthy"  # Assuming healthy for now
-                },
-                "services": {
-                    "total": total_services,
-                    "running": running_services,
-                    "health_percentage": round(service_health_score, 1)
-                },
-                "monitoring": {
-                    "active": monitoring_service.monitoring_active,
-                    "recent_alerts": len(recent_alerts),
-                    "critical_alerts": critical_alerts
-                }
-            },
-            "metrics": current_metrics,
-            "recent_alerts": recent_alerts
-        }
-        
-        return health_data
-        
-    except Exception as e:
-        logger.error(f"Error performing system health check: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to perform system health check")
-
-@api_router.get("/admin/monitoring/current", response_model=dict)
-async def get_current_monitoring_data(admin_user: dict = Depends(require_admin)):
-    """Get current monitoring data from enhanced monitoring service"""
-    try:
-        monitoring_service = get_monitoring_service()
-        current_metrics = monitoring_service.get_current_metrics()
-        return current_metrics
-    except Exception as e:
-        logger.error(f"Error fetching current monitoring data: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch monitoring data")
-
-@api_router.get("/admin/monitoring/history", response_model=dict)
-async def get_monitoring_history(hours: int = 24, admin_user: dict = Depends(require_admin)):
-    """Get monitoring history for specified hours"""
-    try:
-        monitoring_service = get_monitoring_service()
-        history = monitoring_service.get_metrics_history(hours)
-        return history
-    except Exception as e:
-        logger.error(f"Error fetching monitoring history: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch monitoring history")
-
-@api_router.get("/admin/monitoring/alerts", response_model=List[dict])
-async def get_monitoring_alerts(limit: int = 20, admin_user: dict = Depends(require_admin)):
-    """Get recent monitoring alerts"""
-    try:
-        monitoring_service = get_monitoring_service()
-        alerts = monitoring_service.get_recent_alerts(limit)
-        return alerts
-    except Exception as e:
-        logger.error(f"Error fetching monitoring alerts: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch monitoring alerts")
-
-@api_router.post("/admin/monitoring/alerts/clear")
-async def clear_monitoring_alerts(admin_user: dict = Depends(require_admin)):
-    """Clear all monitoring alerts"""
-    try:
-        monitoring_service = get_monitoring_service()
-        monitoring_service.clear_alerts()
-        return {"message": "Alerts cleared successfully"}
-    except Exception as e:
-        logger.error(f"Error clearing monitoring alerts: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to clear alerts")
-
-@api_router.get("/admin/services/status", response_model=dict)
-async def get_services_status(admin_user: dict = Depends(require_admin)):
-    """Get status of all managed services"""
-    try:
-        service_manager = get_service_manager()
-        status = service_manager.get_all_services_status()
-        return status
-    except Exception as e:
-        logger.error(f"Error fetching services status: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch services status")
-
-@api_router.post("/admin/services/{service_name}/{action}")
-async def manage_service(service_name: str, action: str, admin_user: dict = Depends(require_admin)):
-    """Manage a specific service (start/stop/restart)"""
-    try:
-        if action not in ["start", "stop", "restart"]:
-            raise HTTPException(status_code=400, detail="Invalid action. Use start, stop, or restart")
-        
-        service_manager = get_service_manager()
-        
-        if action == "start":
-            success = await service_manager.start_service(service_name)
-        elif action == "stop":
-            success = await service_manager.stop_service(service_name)
-        elif action == "restart":
-            success = await service_manager.restart_service(service_name)
-        
-        if success:
-            return {"message": f"Service {service_name} {action} initiated successfully"}
-        else:
-            raise HTTPException(status_code=500, detail=f"Failed to {action} service {service_name}")
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error managing service {service_name}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to {action} service {service_name}")
-
-@api_router.get("/admin/services/{service_name}/status", response_model=dict)
-async def get_service_status(service_name: str, admin_user: dict = Depends(require_admin)):
-    """Get detailed status of a specific service"""
-    try:
-        service_manager = get_service_manager()
-        status = service_manager.get_service_status(service_name)
-        return status
-    except Exception as e:
-        logger.error(f"Error fetching service status for {service_name}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch status for service {service_name}")
-
-@api_router.get("/admin/system/health", response_model=dict)
-async def get_system_health(admin_user: dict = Depends(require_admin)):
-    """Get comprehensive system health check"""
-    try:
-        # Get monitoring data
-        monitoring_service = get_monitoring_service()
-        current_metrics = monitoring_service.get_current_metrics()
-        recent_alerts = monitoring_service.get_recent_alerts(5)
-        
-        # Get services status
-        service_manager = get_service_manager()
-        services_status = service_manager.get_all_services_status()
-        
-        # Database health check
-        try:
-            # Test Supabase connection
-            supabase_healthy = True
-            # You can add a simple query here to test the connection
-        except Exception:
-            supabase_healthy = False
-        
-        # Overall health calculation
-        critical_alerts = len([alert for alert in recent_alerts if alert.get("severity") == "CRITICAL"])
-        running_services = services_status.get("running_services", 0)
-        total_services = services_status.get("total_services", 1)
-        service_health_score = (running_services / total_services) * 100 if total_services > 0 else 0
-        
-        overall_health = "healthy"
-        if critical_alerts > 0 or service_health_score < 80:
-            overall_health = "warning"
-        if critical_alerts > 3 or service_health_score < 50:
-            overall_health = "critical"
-        
-        health_data = {
-            "overall_health": overall_health,
-            "health_score": round(service_health_score, 1),
-            "timestamp": datetime.utcnow().isoformat(),
-            "components": {
-                "database": {
-                    "supabase": "healthy" if supabase_healthy else "unhealthy",
-                    "mongodb": "healthy"  # Assuming healthy for now
-                },
-                "services": {
-                    "total": total_services,
-                    "running": running_services,
-                    "health_percentage": round(service_health_score, 1)
-                },
-                "monitoring": {
-                    "active": monitoring_service.monitoring_active,
-                    "recent_alerts": len(recent_alerts),
-                    "critical_alerts": critical_alerts
-                }
-            },
-            "metrics": current_metrics,
-            "recent_alerts": recent_alerts
-        }
-        
-        return health_data
-        
-    except Exception as e:
-        logger.error(f"Error performing system health check: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to perform system health check")
-
-@api_router.get("/admin/monitoring/current", response_model=dict)
-async def get_current_monitoring_data(admin_user: dict = Depends(require_admin)):
-    """Get current monitoring data from enhanced monitoring service"""
-    try:
-        monitoring_service = get_monitoring_service()
-        current_metrics = monitoring_service.get_current_metrics()
-        return current_metrics
-    except Exception as e:
-        logger.error(f"Error fetching current monitoring data: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch monitoring data")
-
-@api_router.get("/admin/monitoring/history", response_model=dict)
-async def get_monitoring_history(hours: int = 24, admin_user: dict = Depends(require_admin)):
-    """Get monitoring history for specified hours"""
-    try:
-        monitoring_service = get_monitoring_service()
-        history = monitoring_service.get_metrics_history(hours)
-        return history
-    except Exception as e:
-        logger.error(f"Error fetching monitoring history: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch monitoring history")
-
-@api_router.get("/admin/monitoring/alerts", response_model=List[dict])
-async def get_monitoring_alerts(limit: int = 20, admin_user: dict = Depends(require_admin)):
-    """Get recent monitoring alerts"""
-    try:
-        monitoring_service = get_monitoring_service()
-        alerts = monitoring_service.get_recent_alerts(limit)
-        return alerts
-    except Exception as e:
-        logger.error(f"Error fetching monitoring alerts: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch monitoring alerts")
-
-@api_router.post("/admin/monitoring/alerts/clear")
-async def clear_monitoring_alerts(admin_user: dict = Depends(require_admin)):
-    """Clear all monitoring alerts"""
-    try:
-        monitoring_service = get_monitoring_service()
-        monitoring_service.clear_alerts()
-        return {"message": "Alerts cleared successfully"}
-    except Exception as e:
-        logger.error(f"Error clearing monitoring alerts: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to clear alerts")
-
-@api_router.get("/admin/services/status", response_model=dict)
-async def get_services_status(admin_user: dict = Depends(require_admin)):
-    """Get status of all managed services"""
-    try:
-        service_manager = get_service_manager()
-        status = service_manager.get_all_services_status()
-        return status
-    except Exception as e:
-        logger.error(f"Error fetching services status: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch services status")
-
-@api_router.post("/admin/services/{service_name}/{action}")
-async def manage_service(service_name: str, action: str, admin_user: dict = Depends(require_admin)):
-    """Manage a specific service (start/stop/restart)"""
-    try:
-        if action not in ["start", "stop", "restart"]:
-            raise HTTPException(status_code=400, detail="Invalid action. Use start, stop, or restart")
-        
-        service_manager = get_service_manager()
-        
-        if action == "start":
-            success = await service_manager.start_service(service_name)
-        elif action == "stop":
-            success = await service_manager.stop_service(service_name)
-        elif action == "restart":
-            success = await service_manager.restart_service(service_name)
-        
-        if success:
-            return {"message": f"Service {service_name} {action} initiated successfully"}
-        else:
-            raise HTTPException(status_code=500, detail=f"Failed to {action} service {service_name}")
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error managing service {service_name}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to {action} service {service_name}")
-
-@api_router.get("/admin/services/{service_name}/status", response_model=dict)
-async def get_service_status(service_name: str, admin_user: dict = Depends(require_admin)):
-    """Get detailed status of a specific service"""
-    try:
-        service_manager = get_service_manager()
-        status = service_manager.get_service_status(service_name)
-        return status
-    except Exception as e:
-        logger.error(f"Error fetching service status for {service_name}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch status for service {service_name}")
-
-@api_router.get("/admin/system/health", response_model=dict)
-async def get_system_health(admin_user: dict = Depends(require_admin)):
-    """Get comprehensive system health check"""
-    try:
-        # Get monitoring data
-        monitoring_service = get_monitoring_service()
-        current_metrics = monitoring_service.get_current_metrics()
-        recent_alerts = monitoring_service.get_recent_alerts(5)
-        
-        # Get services status
-        service_manager = get_service_manager()
-        services_status = service_manager.get_all_services_status()
-        
-        # Database health check
-        try:
-            # Test Supabase connection
-            supabase_healthy = True
-            # You can add a simple query here to test the connection
-        except Exception:
-            supabase_healthy = False
-        
-        # Overall health calculation
-        critical_alerts = len([alert for alert in recent_alerts if alert.get("severity") == "CRITICAL"])
-        running_services = services_status.get("running_services", 0)
-        total_services = services_status.get("total_services", 1)
-        service_health_score = (running_services / total_services) * 100 if total_services > 0 else 0
-        
-        overall_health = "healthy"
-        if critical_alerts > 0 or service_health_score < 80:
-            overall_health = "warning"
-        if critical_alerts > 3 or service_health_score < 50:
-            overall_health = "critical"
-        
-        health_data = {
-            "overall_health": overall_health,
-            "health_score": round(service_health_score, 1),
-            "timestamp": datetime.utcnow().isoformat(),
-            "components": {
-                "database": {
-                    "supabase": "healthy" if supabase_healthy else "unhealthy",
-                    "mongodb": "healthy"  # Assuming healthy for now
-                },
-                "services": {
-                    "total": total_services,
-                    "running": running_services,
-                    "health_percentage": round(service_health_score, 1)
-                },
-                "monitoring": {
-                    "active": monitoring_service.monitoring_active,
-                    "recent_alerts": len(recent_alerts),
-                    "critical_alerts": critical_alerts
-                }
-            },
-            "metrics": current_metrics,
-            "recent_alerts": recent_alerts
-        }
-        
-        return health_data
-        
-    except Exception as e:
-        logger.error(f"Error performing system health check: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to perform system health check")
-
-# === AUTOMATION CONTROL ENDPOINTS ===
-
-def get_automation_manager():
-    """Get the appropriate automation manager (real or mock)"""
-    return mock_automation_manager if mock_mode else automation_manager
-
-@api_router.post("/admin/automation/sessions/create", response_model=dict)
-async def create_automation_session(
-    client_id: str,
-    university_name: str,
-    admin_user: dict = Depends(require_admin)
-):
-    """Create a new automation session"""
-    if not automation_available:
-        raise HTTPException(status_code=503, detail="Automation services not available")
-    
-    try:
-        manager = get_automation_manager()
-        session_id = await manager.create_session(client_id, university_name)
-        
-        session_info = {
-            "session_id": session_id,
-            "client_id": client_id,
-            "university_name": university_name,
-            "status": "created",
-            "created_at": datetime.utcnow().isoformat(),
-            "mode": "mock" if mock_mode else "real"
-        }
-        
-        return {
-            "success": True,
-            "session_id": session_id,
-            "message": f"Automation session created successfully ({'Mock Mode' if mock_mode else 'Real Mode'})",
-            "session_info": session_info
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to create automation session: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create session: {str(e)}")
-
-@api_router.get("/admin/automation/sessions", response_model=List[dict])
-async def get_automation_sessions(admin_user: dict = Depends(require_admin)):
-    """Get all automation sessions"""
-    if not automation_available:
-        raise HTTPException(status_code=503, detail="Automation services not available")
-    
-    try:
-        manager = get_automation_manager()
-        sessions = await manager.get_all_sessions()
-        return sessions
-    except Exception as e:
-        logger.error(f"Failed to get automation sessions: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get sessions")
-
-@api_router.get("/admin/automation/sessions/{session_id}", response_model=dict)
-async def get_automation_session(session_id: str, admin_user: dict = Depends(require_admin)):
-    """Get specific automation session details"""
-    if not automation_available:
-        raise HTTPException(status_code=503, detail="Automation services not available")
-    
-    try:
-        session_info = await automation_manager.get_session_info(session_id)
-        if not session_info:
-            raise HTTPException(status_code=404, detail="Session not found")
-        return session_info
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get automation session {session_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get session")
-
-@api_router.post("/admin/automation/sessions/{session_id}/start")
-async def start_automation_session(
-    session_id: str,
-    client_data: dict,
-    admin_user: dict = Depends(require_admin)
-):
-    """Start automation for a session"""
-    if not automation_available:
-        raise HTTPException(status_code=503, detail="Automation services not available")
-    
-    try:
-        manager = get_automation_manager()
-        success = await manager.start_automation(session_id, client_data)
-        mode_text = " (Mock Mode)" if mock_mode else " (Real Mode)"
-        return {"success": success, "message": f"Automation {'started' if success else 'failed to start'}{mode_text}"}
-    except Exception as e:
-        logger.error(f"Failed to start automation for session {session_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to start automation")
-
-@api_router.post("/admin/automation/sessions/{session_id}/pause")
-async def pause_automation_session(session_id: str, admin_user: dict = Depends(require_admin)):
-    """Pause automation for a session"""
-    if not automation_available:
-        raise HTTPException(status_code=503, detail="Automation services not available")
-    
-    try:
-        success = await automation_manager.pause_session(session_id)
-        return {"success": success, "message": "Automation paused" if success else "Failed to pause automation"}
-    except Exception as e:
-        logger.error(f"Failed to pause automation for session {session_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to pause automation")
-
-@api_router.post("/admin/automation/sessions/{session_id}/resume")
-async def resume_automation_session(session_id: str, admin_user: dict = Depends(require_admin)):
-    """Resume automation for a session"""
-    if not automation_available:
-        raise HTTPException(status_code=503, detail="Automation services not available")
-    
-    try:
-        success = await automation_manager.resume_session(session_id)
-        return {"success": success, "message": "Automation resumed" if success else "Failed to resume automation"}
-    except Exception as e:
-        logger.error(f"Failed to resume automation for session {session_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to resume automation")
-
-@api_router.post("/admin/automation/sessions/{session_id}/stop")
-async def stop_automation_session(session_id: str, admin_user: dict = Depends(require_admin)):
-    """Stop automation for a session"""
-    if not automation_available:
-        raise HTTPException(status_code=503, detail="Automation services not available")
-    
-    try:
-        success = await automation_manager.stop_session(session_id)
-        return {"success": success, "message": "Automation stopped" if success else "Failed to stop automation"}
-    except Exception as e:
-        logger.error(f"Failed to stop automation for session {session_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to stop automation")
-
-@api_router.get("/admin/automation/sessions/{session_id}/screenshot")
-async def get_session_screenshot(session_id: str, admin_user: dict = Depends(require_admin)):
-    """Get latest screenshot from automation session"""
-    if not automation_available:
-        raise HTTPException(status_code=503, detail="Automation services not available")
-    
-    try:
-        manager = get_automation_manager()
-        screenshot = await manager.capture_screenshot(session_id)
-        return {
-            "screenshot": screenshot,
-            "timestamp": datetime.utcnow().isoformat(),
-            "session_id": session_id,
-            "mode": "mock" if mock_mode else "real"
-        }
-    except Exception as e:
-        logger.error(f"Failed to get screenshot for session {session_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get screenshot")
-
-@api_router.delete("/admin/automation/sessions/{session_id}")
-async def delete_automation_session(session_id: str, admin_user: dict = Depends(require_admin)):
-    """Delete automation session and cleanup resources"""
-    if not automation_available:
-        raise HTTPException(status_code=503, detail="Automation services not available")
-    
-    try:
-        await automation_manager.cleanup_session(session_id)
-        return {"success": True, "message": "Session deleted successfully"}
-    except Exception as e:
-        logger.error(f"Failed to delete session {session_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to delete session")
-
-# WebSocket endpoint for real-time automation control
-@app.websocket("/ws/automation/{session_id}")
-async def automation_websocket_endpoint(websocket: WebSocket, session_id: str):
-    """WebSocket endpoint for real-time automation control"""
-    if not automation_available:
-        await websocket.close(code=1003, reason="Automation services not available")
-        return
-    
-    await handle_automation_websocket(websocket, session_id)
-
-# === ENHANCED CLIENT ENDPOINTS (with authentication) ===
-
-@api_router.post("/clients", response_model=dict)
-async def create_client(
-    client_data: ClientData, 
-    background_tasks: BackgroundTasks,
-    current_user: dict = Depends(check_usage_limits)
-):
-    """Store client data in Supabase database with encryption"""
-    try:
-        # Add user context to client data
-        client_dict = client_data.dict()
-        client_dict["user_id"] = current_user["id"]
-        
-        # Store in Supabase database
-        result = await supabase_client.create_client(client_dict)
-        
-        if result and 'id' in result:
-            client_id = result['id']
-            
-            # Track usage
-            await supabase_client.track_usage(current_user["id"], "client", client_id)
-            
-            # Send welcome notification (placeholder - implement as needed)
-            # background_tasks.add_task(
-            #     notification_service.send_welcome_notification,
-            #     client_data.email,
-            #     client_data.full_name,
-            #     client_data.phone
-            # )
-        
-            return {"status": "success", "client_id": client_id, "message": "Client data stored successfully"}
-        else:
-            raise HTTPException(status_code=400, detail="Failed to create client")
-    except Exception as e:
-        logger.error(f"Error storing client data: {str(e)}")
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Failed to store client data: {str(e)}")
-
-@api_router.get("/clients", response_model=List[dict])
-async def get_clients(current_user: dict = Depends(get_current_user)):
-    """Get all clients for the current user"""
-    try:
-        clients = await supabase_client.get_user_clients(current_user["id"])
-        return clients
-    except Exception as e:
-        logger.error(f"Error fetching clients: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch clients: {str(e)}")
-
-@api_router.get("/universities")
-async def get_universities():
-    """Get list of supported universities"""
-    return {"universities": TOP_UNIVERSITIES}
-
-@api_router.post("/agent/execute")
-async def execute_agent_command(command: AgentCommand, background_tasks: BackgroundTasks):
-    """Execute autonomous agent command"""
-    try:
-        if command.command_type == "create_applications":
-            # Add background task for application creation
-            background_tasks.add_task(create_applications_task, command.client_id, command.parameters)
-            return {"status": "started", "message": "Application creation process started"}
-        
-        elif command.command_type == "check_status":
-            # Add background task for status checking
-            background_tasks.add_task(check_status_task, command.client_id)
-            return {"status": "started", "message": "Status checking process started"}
-        
-        elif command.command_type == "monitor_daily":
-            # Setup daily monitoring
-            return {"status": "setup", "message": "Daily monitoring configured"}
-        
-        else:
-            raise HTTPException(status_code=400, detail="Invalid command type")
-    
-    except Exception as e:
-        logger.error(f"Error executing agent command: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Command execution failed: {str(e)}")
-
-@api_router.get("/applications")
-async def get_applications():
-    """Get all application tasks from Supabase"""
-    try:
-        applications = await supabase_client.get_all_application_tasks()
-        return applications
-    except Exception as e:
-        logger.error(f"Error fetching applications: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch applications: {str(e)}")
-
-@api_router.get("/applications/status/{client_id}")
-async def get_client_applications(client_id: str):
-    """Get applications for specific client from Supabase"""
-    try:
-        applications = await supabase_client.get_client_application_tasks(client_id)
-        return applications
-    except Exception as e:
-        logger.error(f"Error fetching client applications: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch client applications: {str(e)}")
-
-@api_router.get("/analytics/{client_id}")
-async def get_client_analytics(client_id: str):
-    """Get analytics and insights for a client from Supabase"""
-    try:
-        analytics = await supabase_client.get_client_analytics(client_id)
-        return analytics
-    except Exception as e:
-        logger.error(f"Error fetching analytics: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch analytics: {str(e)}")
-
-@api_router.get("/performance/report")
-async def get_performance_report():
-    """Get system performance report"""
-    try:
-        return perf_monitor.get_performance_report()
-    except Exception as e:
-        logger.error(f"Error generating performance report: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate report: {str(e)}")
-
-@api_router.post("/notifications/test")
-async def test_notification(email: str, phone: Optional[str] = None):
-    """Test notification system"""
-    try:
-        email_sent = await notification_service.send_email(
-            email,
-            "Test Notification",
-            "This is a test notification from the University Application Agent."
-        )
-        
-        sms_sent = False
-        if phone:
-            sms_sent = await notification_service.send_sms(
-                phone,
-                "Test SMS from University Application Agent"
-            )
-        
-        return {
-            "email_sent": email_sent,
-            "sms_sent": sms_sent
-        }
-    except Exception as e:
-        logger.error(f"Error sending test notification: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to send notification: {str(e)}")
-
-# Mock University Portal Routes
-@api_router.get("/mock-university/{university_code}")
-async def get_mock_university_portal(university_code: str):
-    """Serve mock university application portal"""
-    university = next((u for u in TOP_UNIVERSITIES if u["code"] == university_code), None)
-    if not university:
-        raise HTTPException(status_code=404, detail="University not found")
-    
-    return {
-        "university": university,
-        "form_fields": {
-            "personal_details": ["full_name", "email", "phone", "date_of_birth", "nationality", "address"],
-            "academic_history": ["institution", "qualification", "grade", "year"],
-            "course_preferences": ["course_name", "course_code", "entry_year"],
-            "documents": ["transcript", "personal_statement", "reference_letter"],
-            "additional": ["previous_applications", "special_requirements"]
+            "automation": "active",
+            "notifications": "active",
+            "monitoring": "active"
         }
     }
 
-@api_router.post("/mock-university/{university_code}/apply")
-async def submit_mock_application(university_code: str, application: MockUniversityApplication):
-    """Submit application to mock university portal"""
+# Authentication endpoints
+@app.post("/auth/register", response_model=dict)
+async def register(user: UserCreate):
+    """Register a new user"""
     try:
-        university = next((u for u in TOP_UNIVERSITIES if u["code"] == university_code), None)
-        if not university:
-            raise HTTPException(status_code=404, detail="University not found")
+        new_user = create_user(
+            email=user.email,
+            password=user.password,
+            full_name=user.full_name
+        )
         
-        # Store mock application
-        application.university_name = university["name"]
-        mock_db["mock_applications"].append(application.dict())
+        # Send welcome email
+        await notification_service.send_notification(
+            user_id=new_user.id,
+            type="email",
+            subject="Welcome to AI LAM",
+            content=f"Hello {new_user.full_name}, welcome to AI LAM!"
+        )
         
         return {
-            "status": "submitted",
-            "application_id": application.id,
-            "university": university["name"],
-            "message": "Application submitted successfully"
+            "message": "User created successfully",
+            "user_id": new_user.id,
+            "email": new_user.email
         }
-    except Exception as e:
-        logger.error(f"Error submitting mock application: {str(e)}")
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Failed to submit application: {str(e)}")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-# Background Tasks
-async def create_applications_task(client_id: str, parameters: dict):
-    """Background task to create applications autonomously"""
+@app.post("/auth/login", response_model=Token)
+async def login(email: str = Form(...), password: str = Form(...)):
+    """Login user"""
+    user = authenticate_user(email, password)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token = create_access_token(data={"sub": user.id})
+    refresh_token = create_refresh_token(data={"sub": user.id})
+        
+        return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "subscription_plan": user.subscription_plan
+        }
+    }
+
+@app.post("/auth/refresh", response_model=Token)
+async def refresh_token(refresh_token: str):
+    """Refresh access token"""
+    # Implement refresh token logic
+    pass
+
+@app.get("/auth/me", response_model=User)
+async def get_me(current_user: User = Depends(get_current_active_user)):
+    """Get current user info"""
+    return current_user
+
+# Automation endpoints
+@app.post("/automation/create-session")
+async def create_automation_session(
+    target_url: str = Form(...),
+    automation_type: str = Form("general"),  # signup, job_application, visa, appointment, general
+    files: List[UploadFile] = File(None),
+    user_data: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Create a new universal automation session"""
     try:
-        # Get client data from mock database
-        client_data_dict = next((c for c in mock_db["clients"] if c["id"] == client_id), None)
-        if not client_data_dict:
-            # Create a dummy client for testing
-            client_data_dict = {
-                "id": client_id,
-                "full_name": "Test User",
-                "email": f"test.user.{client_id[:8]}@example.com",
-                "phone": "+44 7700 900123",
-                "date_of_birth": "1995-05-15",
-                "nationality": "British",
-                "address": "123 Oxford Street, London, W1D 1DF, UK",
-                "personal_statement": "I am passionate about computer science...",
-                "academic_history": [{"institution": "Test School", "qualification": "A-Levels", "grade": "A*AA", "year": 2022}],
-                "course_preferences": [{"course_name": "Computer Science", "course_code": "CS101", "entry_year": 2023}],
-                "documents": {"transcript": "base64encodedstring"},
-                "created_at": datetime.utcnow().isoformat()
-            }
-            mock_db["clients"].append(client_data_dict)
+        # Check user limits
+        can_automate, message = check_user_limits(current_user.id, 'automation')
+        if not can_automate:
+            raise HTTPException(status_code=403, detail=message)
         
-        client_data = ClientData(**client_data_dict)
-        selected_universities = parameters.get('universities', [])
+        # Process multiple files if uploaded
+        file_data_list = []
+        if files:
+            for file in files:
+                if file.filename:  # Skip empty file uploads
+                    file_content = await file.read()
+                    file_extension = file.filename.split('.')[-1].lower()
+                    file_data_list.append({
+                        'content': file_content,
+                        'type': file_extension,
+                        'filename': file.filename
+                    })
         
-        for university_code in selected_universities:
-            university = next((u for u in TOP_UNIVERSITIES if u["code"] == university_code), None)
-            if not university:
-                continue
-            
+        # Parse user data if provided as JSON
+        parsed_user_data = None
+        if user_data and not file_data_list:
             try:
-                # Create account
-                credentials = await agent.create_university_account(university, client_data)
-                
-                # Fill application
-                application_data = await agent.fill_application_form(university, client_data, credentials)
-                
-                # Create application task
-                task = ApplicationTask(
-                    client_id=client_id,
-                    university_name=university["name"],
-                    course_name=parameters.get('course_name', 'Computer Science'),
-                    course_code=parameters.get('course_code', 'CS101'),
-                    application_url=university["url"],
-                    status="submitted",
-                    credentials=credentials,
-                    application_data=application_data
-                )
-                
-                # Store in mock database
-                mock_db["application_tasks"].append(task.dict())
-                
-                logger.info(f"Successfully created application for {university['name']}")
-                
-            except Exception as e:
-                logger.error(f"Failed to create application for {university['name']}: {str(e)}")
-                continue
-    
+                parsed_user_data = json.loads(user_data)
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="Invalid user data format")
+        
+        # Create session with enhanced parser
+        parser = EnhancedDataParser()
+        
+        # Parse all files
+        if file_data_list:
+            parsed_data = await parser.parse_multiple_files(file_data_list)
+        elif parsed_user_data:
+            parsed_data = [parsed_user_data]
+        else:
+            raise HTTPException(status_code=400, detail="No data provided")
+        
+        # Create automation session
+        automation = AIEnhancedAutomation()
+        session_id = await automation.create_session(
+            user_id=current_user.id,
+            target_url=target_url,
+            automation_type=automation_type,
+            parsed_data=parsed_data
+        )
+        
+        return {
+            "session_id": session_id,
+            "automation_type": automation_type,
+            "files_processed": len(file_data_list),
+            "data_records": len(parsed_data),
+            "status": "created",
+            "message": "AI-enhanced automation session created successfully"
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error in create_applications_task: {str(e)}")
-        logger.error(traceback.format_exc())
-    finally:
-        await agent.cleanup()
+        logger.error(f"Error creating automation session: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create automation session")
 
-async def check_status_task(client_id: str):
-    """Background task to check application status"""
+@app.post("/automation/start/{session_id}")
+async def start_automation(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Start AI-enhanced automation for a session"""
     try:
-        # Get client applications from mock database
-        app_data_list = [app for app in mock_db["application_tasks"] if app["client_id"] == client_id]
+        # Create AI-enhanced automation instance
+        automation = AIEnhancedAutomation()
         
-        for app_data in app_data_list:
-            task = ApplicationTask(**app_data)
+        # Start automation in background
+        asyncio.create_task(run_ai_enhanced_automation(session_id, automation))
+        
+        return {
+            "session_id": session_id,
+            "ai_enabled": automation.ai_service.enabled,
+            "status": "started",
+            "message": "AI-enhanced automation started successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error starting AI automation: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to start AI automation")
+
+@app.get("/automation/status/{session_id}")
+async def get_automation_status(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get automation session status"""
+    try:
+        session = await automation_manager.get_session_status(session_id)
+        
+        # Verify access
+        if session['user_id'] != current_user.id and current_user.role != 'admin':
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        return session
+        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.get("/automation/screenshots/{session_id}")
+async def get_automation_screenshots(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get screenshots from automation session"""
+    try:
+        # Verify access
+        session = await automation_manager.get_session_status(session_id)
+        if session['user_id'] != current_user.id and current_user.role != 'admin':
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        screenshots = await automation_manager.get_session_screenshots(session_id)
+        return {"screenshots": screenshots}
+        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.post("/automation/cancel/{session_id}")
+async def cancel_automation(
+    session_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Cancel a running automation session"""
+    try:
+        # Verify access
+        session = await automation_manager.get_session_status(session_id)
+        if session['user_id'] != current_user.id and current_user.role != 'admin':
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        success = await automation_manager.cancel_session(session_id)
+        
+        if success:
+            return {"message": "Automation cancelled successfully"}
+        else:
+            return {"message": "Automation not running or already completed"}
             
-            # Check status
-            new_status = await agent.check_application_status(task)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.get("/automation/history")
+async def get_automation_history(
+    current_user: User = Depends(get_current_active_user),
+    limit: int = 10,
+    offset: int = 0
+):
+    """Get user's automation history"""
+    try:
+        db_client = get_supabase_client()
+        
+        # Query user's automation sessions
+        query = db_client.table('automation_sessions').select('*').eq(
+            'user_id', current_user.id
+        ).order('created_at', desc=True)
+        
+        if limit:
+            query = query.limit(limit)
+        if offset:
+            query = query.offset(offset)
+        
+        response = query.execute()
+        
+        return {
+            "sessions": response.data,
+            "total": len(response.data),
+            "limit": limit,
+            "offset": offset
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching automation history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch automation history")
+
+# WebSocket endpoint for real-time updates
+@app.websocket("/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    """WebSocket endpoint for real-time automation updates"""
+    await websocket.accept()
+    websocket_connections[session_id] = websocket
+    
+    try:
+        while True:
+            # Keep connection alive
+            await asyncio.sleep(30)
+            await websocket.send_json({"type": "ping"})
             
-            # Update status in mock database
-            for app in mock_db["application_tasks"]:
-                if app["id"] == task.id:
-                    app["status"] = new_status
-                    app["last_checked"] = datetime.utcnow().isoformat()
-            
-            logger.info(f"Updated status for {task.university_name}: {new_status}")
+    except WebSocketDisconnect:
+        del websocket_connections[session_id]
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}")
+        if session_id in websocket_connections:
+            del websocket_connections[session_id]
+
+# Admin endpoints
+@app.get("/admin/stats", dependencies=[Depends(get_current_active_user)])
+async def get_admin_stats(current_user: User = Depends(get_current_active_user)):
+    """Get system statistics (admin only)"""
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    stats = await system_monitor.get_system_stats()
+    return stats
+
+@app.get("/admin/users", dependencies=[Depends(get_current_active_user)])
+async def get_all_users(
+    current_user: User = Depends(get_current_active_user),
+    limit: int = 50,
+    offset: int = 0
+):
+    """Get all users (admin only)"""
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    db_client = get_supabase_client()
+    response = db_client.table('users').select('*').limit(limit).offset(offset).execute()
+    
+    return {
+        "users": response.data,
+        "total": len(response.data),
+        "limit": limit,
+        "offset": offset
+    }
+
+@app.put("/admin/user/{user_id}/plan")
+async def update_user_subscription(
+    user_id: str,
+    plan: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Update user subscription plan (admin only)"""
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    try:
+        update_user_plan(user_id, plan)
+        return {"message": f"User plan updated to {plan}"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Add new endpoint for AI capabilities
+@app.get("/automation/ai-status")
+async def get_ai_status():
+    """Get AI service status and capabilities"""
+    from automation.ai_analysis_service import AIAnalysisService
+    
+    ai_service = AIAnalysisService()
+    
+    return {
+        "ai_enabled": ai_service.enabled,
+        "gemini_available": ai_service.api_key is not None,
+        "model": ai_service.model_name if ai_service.enabled else None,
+        "capabilities": [
+            "Visual webpage analysis",
+            "Intelligent field classification", 
+            "Smart action suggestion",
+            "Error recovery guidance",
+            "Form structure understanding"
+        ] if ai_service.enabled else []
+    }
+
+# Background tasks
+async def run_ai_enhanced_automation(session_id: str, automation: AIEnhancedAutomation):
+    """Run AI-enhanced automation with progress updates"""
+    async def send_progress_update(update: Dict[str, Any]):
+        if session_id in websocket_connections:
+            try:
+                await websocket_connections[session_id].send_json({
+                    "type": "progress",
+                    "data": update
+                })
+            except:
+                pass
+    
+    try:
+        # Get session data (this would come from your session storage)
+        # For now, using placeholder data - in production, retrieve from database
+        session_data = {
+            'target_url': 'https://example.com',
+            'automation_type': 'general',
+            'user_data': {'email': 'test@example.com', 'name': 'Test User'}
+        }
+        
+        # Run AI-enhanced automation
+        result = await automation.intelligent_form_automation(
+            url=session_data['target_url'],
+            user_data=session_data['user_data'],
+            session_id=session_id,
+            automation_type=session_data['automation_type'],
+            progress_callback=send_progress_update
+        )
+        
+        # Send completion notification with AI insights
+        if session_id in websocket_connections:
+            await websocket_connections[session_id].send_json({
+                "type": "completed",
+                "data": {
+                    **result,
+                    "ai_insights_count": len(result.get('ai_insights', [])),
+                    "ai_confidence": result.get('ai_insights', [{}])[-1].get('confidence', 0) if result.get('ai_insights') else 0
+                }
+            })
     
     except Exception as e:
-        logger.error(f"Error in check_status_task: {str(e)}")
-        logger.error(traceback.format_exc())
-    finally:
-        await agent.cleanup()
+        logger.error(f"AI-enhanced automation failed: {str(e)}")
+        if session_id in websocket_connections:
+            await websocket_connections[session_id].send_json({
+                "type": "error",
+                "data": {"error": str(e), "ai_enabled": automation.ai_service.enabled}
+            })
 
-# Include the router in the main app
-app.include_router(api_router)
-
-# Serve static files for mock university portals
-try:
-    app.mount("/static", StaticFiles(directory=str(ROOT_DIR / "static")), name="static")
-except RuntimeError:
-    # Create static directory if it doesn't exist
-    os.makedirs(str(ROOT_DIR / "static"), exist_ok=True)
-    app.mount("/static", StaticFiles(directory=str(ROOT_DIR / "static")), name="static")
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize agent on startup"""
-    logger.info("Autonomous University Application Agent starting up...")
-    
-    # Initialize automation manager
-    if automation_available:
-        try:
-            success = await automation_manager.initialize()
-            if success:
-                logger.info("Automation Manager initialized successfully")
-                globals()['mock_mode'] = False
-            else:
-                logger.warning("Automation Manager initialization failed - switching to mock mode")
-                await mock_automation_manager.initialize()
-                globals()['mock_mode'] = True
-                logger.info("Mock Automation Manager initialized as fallback")
-        except Exception as e:
-            logger.error(f"Failed to initialize Automation Manager: {e}")
-            logger.warning("Switching to mock automation mode")
-            try:
-                await mock_automation_manager.initialize()
-                globals()['mock_mode'] = True
-                logger.info("Mock Automation Manager initialized as fallback")
-            except Exception as mock_e:
-                logger.error(f"Failed to initialize Mock Automation Manager: {mock_e}")
-                globals()['automation_available'] = False
-    
-    # Add some test data to mock database
-    if not mock_db["clients"]:
-        test_client = {
-            "id": "test-client-id",
-            "full_name": "Test User",
-            "email": "test.user@example.com",
-            "phone": "+44 7700 900123",
-            "date_of_birth": "1995-05-15",
-            "nationality": "British",
-            "address": "123 Oxford Street, London, W1D 1DF, UK",
-            "personal_statement": "I am passionate about computer science...",
-            "academic_history": [{"institution": "Test School", "qualification": "A-Levels", "grade": "A*AA", "year": 2022}],
-            "course_preferences": [{"course_name": "Computer Science", "course_code": "CS101", "entry_year": 2023}],
-            "documents": {"transcript": "base64encodedstring"},
-            "created_at": datetime.utcnow().isoformat()
-        }
-        mock_db["clients"].append(test_client)
-        
-        # Add a test application
-        test_application = {
-            "id": "test-application-id",
-            "client_id": "test-client-id",
-            "university_name": "University of Oxford",
-            "course_name": "Computer Science",
-            "course_code": "CS101",
-            "application_url": "https://www.ox.ac.uk/admissions",
-            "status": "submitted",
-            "credentials": {
-                "username": "test.user@example.com",
-                "password": "UniApp1234!",
-                "created_at": datetime.utcnow().isoformat()
-            },
-            "application_data": {
-                "personal_details": {
-                    "name": "Test User",
-                    "email": "test.user@example.com",
-                    "phone": "+44 7700 900123",
-                    "dob": "1995-05-15",
-                    "nationality": "British",
-                    "address": "123 Oxford Street, London, W1D 1DF, UK"
-                },
-                "academic_history": [{"institution": "Test School", "qualification": "A-Levels", "grade": "A*AA", "year": 2022}],
-                "personal_statement": "I am passionate about computer science...",
-                "course_preferences": [{"course_name": "Computer Science", "course_code": "CS101", "entry_year": 2023}],
-                "submitted_at": datetime.utcnow().isoformat(),
-                "status": "submitted"
-            },
-            "created_at": datetime.utcnow().isoformat(),
-            "last_checked": datetime.utcnow().isoformat(),
-            "error_log": []
-        }
-        mock_db["application_tasks"].append(test_application)
-        
-        # Add a test mock application
-        test_mock_application = {
-            "id": "test-mock-application-id",
-            "university_name": "University of Oxford",
-            "applicant_name": "Test User",
-            "email": "test.user@example.com",
-            "course": "Computer Science",
-            "personal_statement": "I am passionate about computer science...",
-            "status": "submitted",
-            "submitted_at": datetime.utcnow().isoformat(),
-            "documents": {"transcript": "base64encodedstring"}
-        }
-        mock_db["mock_applications"].append(test_mock_application)
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
-    await agent.cleanup()
-    logger.info("Autonomous University Application Agent shut down")
-
-# Daily monitoring scheduler (runs in separate thread)
-def setup_daily_monitoring():
-    """Setup daily monitoring schedule"""
-    def daily_check():
-        asyncio.run(run_daily_status_check())
-    
-    schedule.every().day.at("09:00").do(daily_check)
-    
+async def cleanup_old_sessions():
+    """Periodically clean up old sessions"""
     while True:
-        schedule.run_pending()
-        time.sleep(60)
-
-async def run_daily_status_check():
-    """Run daily status check for all active applications"""
-    try:
-        # Get applications from mock database
-        app_data_list = mock_db["application_tasks"]
-        
-        for app_data in app_data_list:
-            if app_data['status'] not in ['accepted', 'rejected']:
-                await check_status_task(app_data['client_id'])
-        
-        logger.info("Daily status check completed")
+        try:
+            await asyncio.sleep(3600)  # Run every hour
+            await automation_manager.cleanup_old_sessions(24)
     except Exception as e:
-        logger.error(f"Error in daily status check: {str(e)}")
+            logger.error(f"Error cleaning up sessions: {str(e)}")
 
-# Start monitoring thread
-monitoring_thread = Thread(target=setup_daily_monitoring, daemon=True)
-monitoring_thread.start()
+# Run the application
+if __name__ == "__main__":
+    import uvicorn
+    
+    port = int(os.environ.get("PORT", 8000))
+    host = os.environ.get("HOST", "0.0.0.0")
+    
+    uvicorn.run(
+        "server:app",
+        host=host,
+        port=port,
+        reload=True,
+        log_level="info"
+    )

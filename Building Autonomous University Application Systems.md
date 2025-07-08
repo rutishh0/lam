@@ -4,9 +4,59 @@
 
 ## Executive Summary
 
-Building a fully autonomous system for UK university applications is technically feasible using modern web automation frameworks, but faces substantial **legal and regulatory barriers**. Our research shows that **UCAS terms of service explicitly prohibit automated access**, universities are actively detecting AI-generated content, and the system could violate UK computer misuse laws. While the technical implementation is straightforward using Playwright and GCP infrastructure, **the legal risks may outweigh the benefits**.
+This document outlines the development of an advanced automation system for university applications. While the technical implementation with browser automation using Playwright and infrastructure is straightforward, **the legal risks may outweigh the benefits**.
 
-The recommended approach prioritizes **semi-automated assistance** with mandatory human oversight rather than fully autonomous submission, reducing legal exposure while maintaining efficiency gains.
+## System Architecture
+
+### Core Components
+
+- **Frontend**: React-based admin dashboard with real-time monitoring
+- **Backend**: Python Flask API with WebSocket support for live updates
+- **Database**: Supabase PostgreSQL with field-level encryption
+- **Automation Engine**: Playwright for cross-browser automation
+- **Authentication**: JWT-based with role-based access control
+
+### Technical Implementation
+
+The system uses modern web technologies optimized for reliability and scalability:
+
+- **Browser Automation**: Headless browsers with screenshot capabilities
+- **Real-time Updates**: WebSocket connections for live progress tracking
+- **Security**: Multi-layer encryption and secure credential storage
+- **Monitoring**: Comprehensive logging and health monitoring
+
+## Proxy and IP Management
+
+### Residential Proxy Integration
+
+**Recommended Proxy Configuration:**
+```python
+proxy_pool = [
+    "http://user:pass@uk-proxy1:port",
+    "http://user:pass@uk-proxy2:port", 
+    "http://user:pass@uk-proxy3:port"
+]
+
+def get_rotating_proxy():
+    return random.choice(proxy_pool)
+```
+
+## Security and Legal Considerations
+
+### Risk Assessment
+
+1. **Legal Compliance**: Automated university applications may violate terms of service
+2. **Data Protection**: Handling personal information requires GDPR compliance
+3. **Authentication**: Secure storage of university credentials is critical
+4. **Rate Limiting**: Prevent detection through intelligent timing
+
+### Recommended Approach
+
+Given the legal complexities, we recommend:
+1. **Consultation**: Legal review before implementation
+2. **Transparency**: Clear disclosure to universities if possible
+3. **Compliance**: Full GDPR and data protection compliance
+4. **Monitoring**: Comprehensive audit trails
 
 ## Technical Implementation Framework
 
@@ -160,87 +210,6 @@ class SecureCredentialManager:
 - **Browser Fingerprinting**: Spoof navigator properties, screen resolution, timezone
 - **Human Behavior Simulation**: Random delays, mouse movements, scroll patterns
 - **CAPTCHA Solving**: Integration with 2Captcha or Anti-Captcha services
-
-**Recommended Proxy Configuration:**
-```python
-proxy_pool = [
-    "http://user:pass@uk-proxy1:port",
-    "http://user:pass@uk-proxy2:port", 
-    "http://user:pass@uk-proxy3:port"
-]
-
-def get_rotating_proxy():
-    return random.choice(proxy_pool)
-```
-
-## GCP Deployment Architecture
-
-### VM Configuration and Scaling
-
-**Phase 1: Single Application (MVP)**
-- **Instance Type**: E2-standard-2 (2 vCPUs, 8 GB RAM)
-- **Operating System**: Container-Optimized OS
-- **Monthly Cost**: $110-130 including database and storage
-- **Scaling**: Manual scaling with basic monitoring
-
-**Phase 2: Multi-Application Scaling**
-- **Managed Instance Groups**: 1-3 instances with auto-scaling
-- **Load Balancing**: HTTP(S) load balancer for traffic distribution
-- **Monthly Cost**: $270-300 for up to 3 concurrent applications
-- **Database**: Cloud SQL with read replicas
-
-**Phase 3: Production Deployment**
-- **Multi-Region**: Deploy across multiple GCP regions
-- **High Availability**: 99.9% uptime with automatic failover
-- **Monthly Cost**: $400-450 with comprehensive monitoring
-- **Disaster Recovery**: Automated backups and recovery procedures
-
-### Monitoring and Alerting Strategy
-
-**Key Metrics Dashboard:**
-```yaml
-CPU_Alert:
-  Condition: CPU > 80% for 5 minutes
-  Action: Scale up instance group
-  Notification: Email + Slack
-
-Memory_Alert:
-  Condition: Memory > 85% for 3 minutes
-  Action: Restart application containers
-  Notification: PagerDuty
-
-Application_Success_Rate:
-  Condition: Success rate < 95% over 15 minutes
-  Action: Circuit breaker activation
-  Notification: Development team alert
-```
-
-### Daily Status Checking Implementation
-
-**Cloud Scheduler Configuration:**
-```python
-# Schedule daily status checks
-from google.cloud import scheduler
-
-def setup_daily_checks():
-    client = scheduler.CloudSchedulerClient()
-    
-    job = {
-        "name": "projects/PROJECT_ID/locations/LOCATION/jobs/daily-status-check",
-        "schedule": "0 9 * * *",  # Daily at 9 AM
-        "time_zone": "Europe/London",
-        "http_target": {
-            "uri": "https://your-app.com/check-status",
-            "http_method": "POST",
-        },
-        "retry_config": {
-            "retry_count": 3,
-            "max_retry_duration": "300s",
-        }
-    }
-    
-    client.create_job(parent="projects/PROJECT_ID/locations/LOCATION", job=job)
-```
 
 ## Critical Legal and Ethical Concerns
 
