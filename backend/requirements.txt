@@ -1,36 +1,20 @@
-# Core FastAPI dependencies
+# Minimal requirements for Railway deployment
 fastapi==0.104.1
-uvicorn[standard]==0.24.0
+uvicorn==0.24.0
+python-dotenv==1.0.0
 python-multipart==0.0.6
+pydantic==2.5.0
+
+# Authentication (simplified)
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-python-dotenv==1.0.0
 
-# Database and Storage
+# Database (core only)
 supabase==2.2.0
-psycopg2-binary==2.9.7
-sqlalchemy==2.0.23
 
-# Enhanced Eko Automation
-# Note: subprocess is built-in Python module, not a pip package
-# Note: asyncio is built-in Python module, not a pip package
-playwright==1.40.0
-
-# HTTP and API
-httpx==0.25.2
+# HTTP requests
 requests==2.31.0
+httpx==0.25.2
+
+# File handling
 aiofiles==23.2.1
-
-# Security
-cryptography==41.0.8
-bcrypt==4.1.2
-
-# Utilities
-pydantic==2.5.0
-typing-extensions==4.8.0
-
-# Additional dependencies that were in original requirements
-websockets==12.0
-jinja2==3.1.2
-celery==5.3.4
-redis==5.0.1

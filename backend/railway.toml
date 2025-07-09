@@ -2,13 +2,12 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "bash start.sh"
+startCommand = "python -m uvicorn server:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 
 [env]
-NODE_VERSION = "18"
 PYTHON_VERSION = "3.11"
 PORT = "8000"
 PYTHONPATH = "." 
