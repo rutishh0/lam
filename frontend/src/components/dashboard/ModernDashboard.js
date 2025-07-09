@@ -14,12 +14,26 @@ import {
   ArrowRight,
   Play,
   Pause,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  Brain,
+  Upload,
+  CheckCircle
 } from 'lucide-react';
 import MetricCard from './MetricCard';
+import EkoAutomationPanel from '../automation/EkoAutomationPanel';
+import EnhancedEkoPanel from '../automation/EnhancedEkoPanel';
 
 const ModernDashboard = () => {
-  const [dashboardData, setDashboardData] = useState(null);
+  const [currentView, setCurrentView] = useState('dashboard');
+  const [metrics, setMetrics] = useState({
+    totalApplications: 47,
+    completedApplications: 12,
+    pendingApplications: 23,
+    activeAutomations: 8,
+    automationSuccess: 94.5,
+    documentsProcessed: 156
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [automationStatus, setAutomationStatus] = useState('active');
 
@@ -30,15 +44,13 @@ const ModernDashboard = () => {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      setDashboardData({
+      setMetrics({
         totalApplications: 142,
-        activeClients: 38,
-        successRate: 94.5,
-        pendingTasks: 12,
-        weeklyGrowth: 15.8,
-        monthlyRevenue: 28500,
-        averageProcessingTime: 4.2,
-        automationHealth: 98.5
+        completedApplications: 38,
+        pendingApplications: 12,
+        activeAutomations: 8,
+        automationSuccess: 94.5,
+        documentsProcessed: 156
       });
       setIsLoading(false);
     };
@@ -116,8 +128,49 @@ const ModernDashboard = () => {
     }
   };
 
+  // Add Eko automation quick action to the existing quick actions grid
+  const quickActions = [
+    {
+      title: 'New Application',
+      description: 'Start a new university application',
+      icon: Plus,
+      color: 'teal',
+      action: () => console.log('New application')
+    },
+    {
+      title: 'Eko Automation',
+      description: 'AI-powered workflow automation',
+      icon: Brain,
+      color: 'purple',
+      action: () => setCurrentView('eko-automation')
+    },
+    {
+      title: 'Enhanced Eko',
+      description: 'Multi-browser parallel automation',
+      icon: Users,
+      color: 'cyan',
+      action: () => setCurrentView('enhanced-eko')
+    },
+    {
+      title: 'Status Check',
+      description: 'Check application status',
+      icon: CheckCircle,
+      color: 'green',
+      action: () => console.log('Status check')
+    }
+  ];
+
+  // Handle view routing
+  if (currentView === 'eko-automation') {
+    return <EkoAutomationPanel onBack={() => setCurrentView('dashboard')} />;
+  }
+
+  if (currentView === 'enhanced-eko') {
+    return <EnhancedEkoPanel onBack={() => setCurrentView('dashboard')} />;
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gray-50">
       {/* Welcome Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -154,47 +207,28 @@ const ModernDashboard = () => {
         </div>
       </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Update the metrics to include automation data */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <MetricCard
           title="Total Applications"
-          value={dashboardData?.totalApplications || 0}
+          value={metrics.totalApplications}
+          change={12}
           icon={FileText}
-          trend="up"
-          trendValue="+12%"
-          description="This month"
-          color="blue"
-          isLoading={isLoading}
+          color="teal"
         />
         <MetricCard
-          title="Active Clients"
-          value={dashboardData?.activeClients || 0}
-          icon={Users}
-          trend="up"
-          trendValue="+8"
-          description="New this week"
-          color="green"
-          isLoading={isLoading}
-        />
-        <MetricCard
-          title="Success Rate"
-          value={`${dashboardData?.successRate || 0}%`}
-          icon={Star}
-          trend="up"
-          trendValue="+2.3%"
-          description="Last 30 days"
+          title="Active Automations"
+          value={metrics.activeAutomations}
+          change={25}
+          icon={Bot}
           color="purple"
-          isLoading={isLoading}
         />
         <MetricCard
-          title="AI Tasks Pending"
-          value={dashboardData?.pendingTasks || 0}
+          title="Automation Success"
+          value={`${metrics.automationSuccess}%`}
+          change={2.3}
           icon={Zap}
-          trend="down"
-          trendValue="-5"
-          description="Processing queue"
-          color="orange"
-          isLoading={isLoading}
+          color="green"
         />
       </div>
 
@@ -281,45 +315,21 @@ const ModernDashboard = () => {
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <button className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all group">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-              <Users className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="text-left">
-              <p className="font-medium text-gray-900">Add Client</p>
-              <p className="text-sm text-gray-600">Create new client profile</p>
-            </div>
-          </button>
-          
-          <button className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all group">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-              <Bot className="w-5 h-5 text-purple-600" />
-            </div>
-            <div className="text-left">
-              <p className="font-medium text-gray-900">New Automation</p>
-              <p className="text-sm text-gray-600">Set up AI task</p>
-            </div>
-          </button>
-          
-          <button className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 transition-all group">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
-              <FileText className="w-5 h-5 text-green-600" />
-            </div>
-            <div className="text-left">
-              <p className="font-medium text-gray-900">Upload Documents</p>
-              <p className="text-sm text-gray-600">Add client files</p>
-            </div>
-          </button>
-          
-          <button className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-all group">
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-              <Activity className="w-5 h-5 text-orange-600" />
-            </div>
-            <div className="text-left">
-              <p className="font-medium text-gray-900">View Analytics</p>
-              <p className="text-sm text-gray-600">Performance insights</p>
-            </div>
-          </button>
+                     {quickActions.map((action, index) => (
+             <button
+               key={index}
+               className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:border-teal-300 hover:bg-teal-50 transition-all group"
+               onClick={action.action}
+             >
+               <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-200 transition-colors">
+                 <action.icon className="w-5 h-5 text-teal-600" />
+                </div>
+              <div className="text-left">
+                <p className="font-medium text-gray-900">{action.title}</p>
+                <p className="text-sm text-gray-600">{action.description}</p>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
     </div>
