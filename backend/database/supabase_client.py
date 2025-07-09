@@ -686,5 +686,16 @@ def get_supabase_client() -> SupabaseClient:
 
 # Async wrapper functions for compatibility
 async def get_db_client() -> SupabaseClient:
-    """Async wrapper to get database client"""
-    return get_supabase_client() 
+    """Get database client instance (async alias)"""
+    return get_supabase_client()
+
+def test_connection() -> bool:
+    """Test database connection - returns True if successful, False otherwise"""
+    try:
+        client = get_supabase_client()
+        # Try a simple query to test the connection
+        result = client.client.table('users').select('id').limit(1).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Database connection test failed: {str(e)}")
+        return False 
