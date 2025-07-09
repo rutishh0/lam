@@ -138,24 +138,6 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
 )
 
-# Enhanced Health Check
-@app.get("/health")
-async def enhanced_health_check():
-    """Enhanced health check endpoint following Suna's pattern."""
-    monitoring_service = get_monitoring_service()
-    health_status = await monitoring_service.get_health_status()
-    
-    return {
-        "status": health_status["status"],
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "instance_id": instance_id,
-        "version": "2.0.0",
-        "environment": config.ENV_MODE.value,
-        "health_score": health_status["health_score"],
-        "services": health_status["services"],
-        "issues": health_status.get("issues", [])
-    }
-
 # System Status Endpoint
 @app.get("/status")
 async def system_status():

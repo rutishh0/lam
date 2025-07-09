@@ -13,19 +13,15 @@ if isinstance(cors_origins, str):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
     allow_origins=cors_origins,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_credentials=True,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
 
 if __name__ == "__main__":
     import uvicorn

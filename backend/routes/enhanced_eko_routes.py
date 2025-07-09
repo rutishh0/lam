@@ -407,45 +407,4 @@ async def log_enhanced_workflow_activity(
         logger.info(f"Enhanced workflow logged - User: {user_id}, Type: {workflow_type}, "
                    f"Sessions: {result.get('sessions_used', [])}, Success: {result.get('success')}")
     except Exception as e:
-        logger.error(f"Error logging enhanced workflow activity: {str(e)}")
-
-# Health check endpoint
-@router.get("/health-enhanced")
-async def enhanced_eko_health_check():
-    """Enhanced health check for multi-browser Eko automation service"""
-    try:
-        active_sessions = len(enhanced_eko_service.active_sessions)
-        
-        health_status = {
-            "service": "Enhanced Eko Automation",
-            "status": "healthy",
-            "timestamp": "2024-01-15T12:00:00Z",
-            "active_sessions": active_sessions,
-            "max_sessions": 10,
-            "session_utilization": f"{(active_sessions/10)*100:.1f}%",
-            "checks": {
-                "node_js": "available",
-                "eko_framework": "installed",
-                "playwright": "installed",
-                "browser_binaries": "ready",
-                "multi_browser_support": "enabled",
-                "session_management": "operational"
-            },
-            "capabilities": {
-                "parallel_processing": True,
-                "intelligent_coordination": True,
-                "session_isolation": True,
-                "persistent_sessions": True,
-                "cdp_connection": True
-            }
-        }
-        
-        return health_status
-        
-    except Exception as e:
-        return {
-            "service": "Enhanced Eko Automation",
-            "status": "unhealthy",
-            "error": str(e),
-            "active_sessions": 0
-        } 
+        logger.error(f"Error logging enhanced workflow activity: {str(e)}") 

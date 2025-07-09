@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(title="UniAgent API")
 
-# Configure CORS
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "https://d7a0ac55-32a2-46e1-857b-d77484269258.preview.emergentagent.com"],
@@ -23,6 +23,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Routes
 
 # Initialize Supabase
 try:
@@ -34,11 +36,6 @@ except Exception as e:
     logger.error(f"❌ Failed to initialize Supabase: {e}")
     supabase_client = None
     auth_service = None
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "message": "API is running"}
 
 @app.post("/api/auth/login")
 async def login_user(login_data: UserLogin):

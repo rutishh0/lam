@@ -302,31 +302,4 @@ async def log_workflow_activity(
         # Implementation would log to database
         logger.info(f"Workflow logged - User: {user_id}, Type: {workflow_type}, Success: {result.get('success')}")
     except Exception as e:
-        logger.error(f"Error logging workflow activity: {str(e)}")
-
-# Health check endpoint
-@router.get("/health")
-async def eko_health_check():
-    """Health check for Eko automation service"""
-    try:
-        # Check if Eko environment is available
-        health_status = {
-            "service": "Eko Automation",
-            "status": "healthy",
-            "timestamp": "2024-01-15T12:00:00Z",
-            "checks": {
-                "node_js": "available",
-                "eko_framework": "installed",
-                "browser_agent": "ready",
-                "file_agent": "ready"
-            }
-        }
-        
-        return health_status
-        
-    except Exception as e:
-        return {
-            "service": "Eko Automation",
-            "status": "unhealthy",
-            "error": str(e)
-        } 
+        logger.error(f"Error logging workflow activity: {str(e)}") 

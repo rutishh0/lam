@@ -94,24 +94,6 @@ app.add_middleware(
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Health check endpoint
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    db_status = "connected" if test_connection() else "disconnected"
-        
-        return {
-            "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
-        "database": db_status,
-        "version": "2.0.0",
-            "services": {
-            "automation": "active",
-            "notifications": "active",
-            "monitoring": "active"
-        }
-    }
-
 # Authentication endpoints
 @app.post("/auth/register", response_model=dict)
 async def register(user: UserCreate):
