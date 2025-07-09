@@ -71,12 +71,23 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configure CORS
+# Configure CORS for production
+import os
+cors_origins = [
+    "https://lam-nu.vercel.app",  # Production frontend
+    "http://localhost:3000",     # Development frontend
+    "http://localhost:3001",     # Alternative dev port
+]
+
+# Add any additional origins from environment variable
+if os.getenv("CORS_ORIGINS"):
+    cors_origins.extend(os.getenv("CORS_ORIGINS").split(","))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
