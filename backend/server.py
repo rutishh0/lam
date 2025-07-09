@@ -94,6 +94,12 @@ app.add_middleware(
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Simple health check to satisfy Railway's cached configuration
+@app.get("/health")
+async def health_check():
+    """Simple health check endpoint"""
+    return {"status": "ok"}
+
 # Authentication endpoints
 @app.post("/auth/register", response_model=dict)
 async def register(user: UserCreate):
