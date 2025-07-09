@@ -182,3 +182,21 @@ def setup_encryption_environment():
     print(f"Add this to your .env file:")
     print(f"ENCRYPTION_MASTER_KEY={key}")
     return key 
+
+# Global encryption instance for standalone functions
+_encryption = None
+
+def get_encryption():
+    """Get or create global encryption instance"""
+    global _encryption
+    if _encryption is None:
+        _encryption = DataEncryption()
+    return _encryption
+
+def encrypt_data(data: Union[str, Dict]) -> str:
+    """Standalone encrypt function"""
+    return get_encryption().encrypt_data(data)
+
+def decrypt_data(encrypted_data: str) -> Union[str, Dict]:
+    """Standalone decrypt function"""
+    return get_encryption().decrypt_data(encrypted_data) 
