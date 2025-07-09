@@ -14,9 +14,9 @@ supabase==2.2.0
 # psycopg2-binary 2.9.9 includes prebuilt wheels for Python 3.12 and avoids compilation issues
 psycopg2-binary==2.9.9
 
-# HTTP requests
+# HTTP requests (adjusted for supabase compatibility)
 requests==2.31.0
-httpx==0.25.2
+httpx==0.24.1
 
 # File handling
 aiofiles==23.2.1
