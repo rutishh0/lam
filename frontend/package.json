@@ -24,7 +24,10 @@
     "start": "craco start",
     "build": "craco build",
     "test": "craco test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "ui:modern": "node switch-ui.js modern",
+    "ui:classic": "node switch-ui.js classic",
+    "ui:status": "node switch-ui.js status"
   },
   "browserslist": {
     "production": [

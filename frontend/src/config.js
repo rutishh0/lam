@@ -1,5 +1,5 @@
 /**
- * Configuration for AI LAM Frontend
+ * Configuration for Elevate Frontend
  */
 
 const config = {
@@ -22,7 +22,7 @@ const config = {
   
   // App Configuration
   app: {
-    name: 'AI LAM',
+    name: 'Elevate Ed',
     version: '2.0.0',
     description: 'Universal Form Automation Platform'
   },
