@@ -603,4 +603,4 @@ const AutomationControlPanel = () => {
   );
 };
 
-export default AutomationControlPanel; 
+export default AutomationControlPanel;

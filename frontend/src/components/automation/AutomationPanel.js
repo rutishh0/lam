@@ -355,4 +355,4 @@ const AutomationPanel = () => {
   );
 };
 
-export default AutomationPanel; 
+export default AutomationPanel;

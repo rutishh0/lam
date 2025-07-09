@@ -1,127 +1,71 @@
-import React from 'react';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown } from "lucide-react"
 
-const MetricCard = ({ 
-  title, 
-  value, 
-  previousValue, 
-  icon: Icon, 
-  trend = 'neutral', 
-  trendValue, 
-  description,
-  color = 'blue',
-  isLoading = false 
-}) => {
-  const colorClasses = {
-    blue: {
-      bg: 'from-blue-500 to-cyan-500',
-      iconBg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
-      trend: 'text-blue-600'
-    },
-    purple: {
-      bg: 'from-purple-500 to-pink-500',
-      iconBg: 'bg-purple-100',
-      iconColor: 'text-purple-600',
-      trend: 'text-purple-600'
-    },
-    green: {
-      bg: 'from-green-500 to-emerald-500',
-      iconBg: 'bg-green-100',
-      iconColor: 'text-green-600',
-      trend: 'text-green-600'
-    },
-    orange: {
-      bg: 'from-orange-500 to-yellow-500',
-      iconBg: 'bg-orange-100',
-      iconColor: 'text-orange-600',
-      trend: 'text-orange-600'
-    },
-    red: {
-      bg: 'from-red-500 to-pink-500',
-      iconBg: 'bg-red-100',
-      iconColor: 'text-red-600',
-      trend: 'text-red-600'
+const MetricCard = ({ title, value, change, icon: Icon, color = "blue", size = "default" }) => {
+  const getGradientClasses = (color) => {
+    const gradients = {
+      blue: "from-blue-500 to-cyan-500",
+      green: "from-green-500 to-emerald-500",
+      yellow: "from-yellow-500 to-orange-500",
+      red: "from-red-500 to-pink-500",
+      purple: "from-purple-500 to-pink-500",
+      orange: "from-orange-500 to-red-500",
+      indigo: "from-indigo-500 to-purple-500",
+      teal: "from-teal-500 to-cyan-500",
     }
-  };
-
-  const getTrendIcon = () => {
-    switch (trend) {
-      case 'up':
-        return <TrendingUp className="w-4 h-4" />;
-      case 'down':
-        return <TrendingDown className="w-4 h-4" />;
-      default:
-        return <Minus className="w-4 h-4" />;
-    }
-  };
-
-  const getTrendColor = () => {
-    switch (trend) {
-      case 'up':
-        return 'text-green-600 bg-green-50';
-      case 'down':
-        return 'text-red-600 bg-red-50';
-      default:
-        return 'text-gray-600 bg-gray-50';
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 animate-pulse">
-        <div className="flex items-center justify-between mb-4">
-          <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
-          <div className="w-16 h-6 bg-gray-200 rounded"></div>
-        </div>
-        <div className="w-24 h-8 bg-gray-200 rounded mb-2"></div>
-        <div className="w-32 h-4 bg-gray-200 rounded"></div>
-      </div>
-    );
+    return gradients[color] || gradients.blue
   }
 
+  const sizeClasses = {
+    small: "p-4",
+    default: "p-6",
+    large: "p-8",
+  }
+
+  const iconSizes = {
+    small: "h-8 w-8",
+    default: "h-12 w-12",
+    large: "h-16 w-16",
+  }
+
+  const valueSizes = {
+    small: "text-2xl",
+    default: "text-3xl",
+    large: "text-4xl",
+  }
+
+  const isPositive = change > 0
+
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 group">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className={`w-12 h-12 ${colorClasses[color].iconBg} rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
-          <Icon className={`w-6 h-6 ${colorClasses[color].iconColor}`} />
+    <div
+      className={`bg-gradient-to-br from-slate-800/50 to-slate-700/30 backdrop-blur-xl rounded-2xl border border-slate-600/30 hover:border-slate-500/50 transition-all duration-300 group ${sizeClasses[size]}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <p className="text-slate-400 text-sm font-medium mb-3">{title}</p>
+          <p className={`font-bold text-white mb-3 ${valueSizes[size]}`}>{value}</p>
+          {change !== undefined && (
+            <div
+              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                isPositive
+                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                  : "bg-red-500/20 text-red-400 border border-red-500/30"
+              }`}
+            >
+              {isPositive ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+              <span>{Math.abs(change)}%</span>
+            </div>
+          )}
         </div>
-        
-        {trendValue && (
-          <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-sm font-medium ${getTrendColor()}`}>
-            {getTrendIcon()}
-            <span>{trendValue}</span>
+        {Icon && (
+          <div
+            className={`bg-gradient-to-r ${getGradientClasses(color)} ${iconSizes[size]} rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform duration-300`}
+          >
+            <Icon className={`${iconSizes[size]} text-white`} />
           </div>
         )}
       </div>
-
-      {/* Value */}
-      <div className="space-y-1">
-        <h3 className="text-2xl font-bold text-gray-900 group-hover:text-gray-700 transition-colors">
-          {value}
-        </h3>
-        <p className="text-sm text-gray-600">{title}</p>
-        {description && (
-          <p className="text-xs text-gray-500 mt-2">{description}</p>
-        )}
-      </div>
-
-      {/* Progress Bar (if showing trend) */}
-      {previousValue && (
-        <div className="mt-4">
-          <div className="w-full bg-gray-100 rounded-full h-1.5">
-            <div 
-              className={`h-1.5 rounded-full bg-gradient-to-r ${colorClasses[color].bg} transition-all duration-1000 ease-out`}
-              style={{ 
-                width: `${Math.min(100, (value / previousValue) * 100)}%` 
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
-  );
-};
+  )
+}
 
-export default MetricCard; 
+export default MetricCard

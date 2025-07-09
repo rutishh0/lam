@@ -278,4 +278,4 @@ const DocumentUpload = ({ onDocumentsChange, existingDocuments = {} }) => {
   );
 };
 
-export default DocumentUpload; 
+export default DocumentUpload;

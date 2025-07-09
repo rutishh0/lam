@@ -1,47 +1,49 @@
-import React from 'react';
+import { Bot, Sparkles } from "lucide-react"
 
-const ElevateEdLogo = ({ size = 'md', showText = true, className = '' }) => {
+const ElevateEdLogo = ({ size = "default", showText = true, animated = true }) => {
   const sizeClasses = {
-    sm: 'w-6 h-6',
-    md: 'w-8 h-8', 
-    lg: 'w-12 h-12',
-    xl: 'w-16 h-16'
-  };
+    small: "w-8 h-8",
+    default: "w-12 h-12",
+    large: "w-16 h-16",
+    xl: "w-20 h-20",
+  }
 
-  const textSizeClasses = {
-    sm: 'text-sm',
-    md: 'text-lg',
-    lg: 'text-xl',
-    xl: 'text-2xl'
-  };
+  const textSizes = {
+    small: "text-lg",
+    default: "text-xl",
+    large: "text-2xl",
+    xl: "text-3xl",
+  }
 
   return (
-    <div className={`flex items-center space-x-3 ${className}`}>
-      {/* Logo Icon - Inspired by the stacked circular design */}
-      <div className={`relative ${sizeClasses[size]} flex items-center justify-center`}>
-        {/* Stacked circular elements representing elevation/progress */}
-        <div className="absolute inset-0 flex flex-col justify-center items-center space-y-0.5">
-          {/* Top circle - lightest */}
-          <div className="w-full h-1 bg-gradient-to-r from-teal-200 to-cyan-200 rounded-full opacity-60"></div>
-          {/* Second circle */}
-          <div className="w-full h-1 bg-gradient-to-r from-teal-300 to-cyan-300 rounded-full opacity-70"></div>
-          {/* Third circle */}
-          <div className="w-full h-1.5 bg-gradient-to-r from-teal-400 to-cyan-400 rounded-full opacity-80"></div>
-          {/* Fourth circle */}
-          <div className="w-full h-1.5 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full opacity-90"></div>
-          {/* Bottom circle - darkest/strongest */}
-          <div className="w-full h-2 bg-gradient-to-r from-teal-600 to-cyan-600 rounded-full"></div>
+    <div className="flex items-center space-x-3">
+      <div className="relative">
+        <div
+          className={`${sizeClasses[size]} bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/25 ${animated ? "hover:scale-110 transition-transform duration-300" : ""}`}
+        >
+          <Bot
+            className={`${size === "small" ? "w-5 h-5" : size === "large" ? "w-8 h-8" : size === "xl" ? "w-10 h-10" : "w-6 h-6"} text-white`}
+          />
         </div>
+        {animated && (
+          <>
+            <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-yellow-400 animate-pulse" />
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-2xl animate-pulse"></div>
+          </>
+        )}
       </div>
-      
-      {/* Company Name */}
       {showText && (
-        <span className={`font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent ${textSizeClasses[size]}`}>
-          Elevate Ed
-        </span>
+        <div>
+          <h1
+            className={`${textSizes[size]} font-bold bg-gradient-to-r from-white via-cyan-200 to-blue-200 bg-clip-text text-transparent`}
+          >
+            Elevate Ed
+          </h1>
+          <p className="text-xs text-slate-400">Neural Intelligence Platform</p>
+        </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default ElevateEdLogo; 
+export default ElevateEdLogo

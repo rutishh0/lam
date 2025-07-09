@@ -482,4 +482,4 @@ const EkoAutomationPanel = () => {
   );
 };
 
-export default EkoAutomationPanel; 
+export default EkoAutomationPanel;

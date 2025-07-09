@@ -95,4 +95,4 @@ Examples:
   console.log('\n🚀 Changes will take effect on next app reload');
 }
 
-main(); 
+main();
