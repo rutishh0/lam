@@ -25,6 +25,7 @@ from auth.auth_service import (
 from database.supabase_client import get_supabase_client, test_connection
 from automation.ai_enhanced_automation import AIEnhancedAutomation
 from automation.enhanced_data_parser import EnhancedDataParser
+from automation.automation_manager import AutomationManager
 from notifications.notification_service import NotificationService
 from monitoring.status_monitor import SystemMonitor
 
@@ -87,13 +88,13 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def health_check():
     """Health check endpoint"""
     db_status = "connected" if test_connection() else "disconnected"
-        
-        return {
-            "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
+    
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
         "database": db_status,
         "version": "2.0.0",
-            "services": {
+        "services": {
             "automation": "active",
             "notifications": "active",
             "monitoring": "active"
@@ -140,8 +141,8 @@ async def login(email: str = Form(...), password: str = Form(...)):
     
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
-        
-        return {
+    
+    return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
