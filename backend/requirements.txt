@@ -11,6 +11,8 @@ passlib[bcrypt]==1.7.4
 
 # Database (core only)
 supabase==2.2.0
+# psycopg2-binary 2.9.9 includes prebuilt wheels for Python 3.12 and avoids compilation issues
+psycopg2-binary==2.9.9
 
 # HTTP requests
 requests==2.31.0
