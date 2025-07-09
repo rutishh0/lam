@@ -23,3 +23,5 @@ aiofiles==23.2.1
 PyJWT==2.8.0
 email-validator==2.1.1
 playwright==1.40.0
+fake-useragent==1.4.0
+Pillow==10.1.0
