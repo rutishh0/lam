@@ -245,7 +245,7 @@ npx playwright install chromium
 
 ## 🌐 Frontend Deployment
 
-### **Option 1: Vercel (Recommended)**
+### **Option 1 : Vercel (Recommended)**
 
 Perfect for React applications with excellent performance and easy deployment.
 
