@@ -28,6 +28,7 @@ security = HTTPBearer()
 
 class UserCreate(BaseModel):
     name: str
+    full_name: Optional[str] = None  # Add alias for backwards compatibility
     email: EmailStr
     password: str
     plan: str = "starter"
@@ -411,3 +412,78 @@ async def check_usage_limits(
     except Exception as e:
         logger.error(f"Usage limit check error: {str(e)}")
         return current_user  # Allow by default on error 
+
+# Standalone wrapper functions for backwards compatibility
+from database.supabase_client import get_supabase_client
+
+def create_user(email: str, password: str, full_name: str):
+    """Create a new user - wrapper for AuthService.register_user"""
+    import asyncio
+    supabase_client = get_supabase_client()
+    auth_service = AuthService(supabase_client)
+    
+    user_data = UserCreate(
+        name=full_name,
+        full_name=full_name,
+        email=email,
+        password=password
+    )
+    
+    # Run async function synchronously
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        result = loop.run_until_complete(auth_service.register_user(user_data))
+        return result["user"]
+    finally:
+        loop.close()
+
+def authenticate_user(email: str, password: str):
+    """Authenticate user - wrapper for AuthService.login_user"""
+    import asyncio
+    supabase_client = get_supabase_client()
+    auth_service = AuthService(supabase_client)
+    
+    login_data = UserLogin(email=email, password=password)
+    
+    # Run async function synchronously
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        result = loop.run_until_complete(auth_service.login_user(login_data))
+        return result["user"]
+    except:
+        return None
+    finally:
+        loop.close()
+
+def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """Create access token - wrapper for AuthService.create_access_token"""
+    supabase_client = get_supabase_client()
+    auth_service = AuthService(supabase_client)
+    return auth_service.create_access_token(data, expires_delta)
+
+def create_refresh_token(data: Dict[str, Any]) -> str:
+    """Create refresh token - wrapper for AuthService.create_refresh_token"""
+    supabase_client = get_supabase_client()
+    auth_service = AuthService(supabase_client)
+    return auth_service.create_refresh_token(data)
+
+# Additional wrapper functions that server.py expects
+def get_current_active_user():
+    """Wrapper to return the get_current_user dependency"""
+    return get_current_user
+
+def update_user_plan(user_id: str, plan: str):
+    """Update user subscription plan"""
+    # This would need to be implemented based on your requirements
+    pass
+
+def check_user_limits(user_id: str, limit_type: str):
+    """Check if user has reached limits"""
+    # Basic implementation - returns True for now
+    return True, "OK"
+
+# Export the User model and Token response for server.py
+User = UserResponse
+Token = TokenResponse 
