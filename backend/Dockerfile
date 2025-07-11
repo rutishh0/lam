@@ -19,7 +19,7 @@ RUN playwright install --with-deps chromium  # Installs browser + deps
 COPY . .
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8080
 
-# Start command - use PORT environment variable provided by Cloud Run
-CMD ["sh", "-c", "python -m uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}"] 
+# Start command - Cloud Run sets PORT=8080
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080"] 
