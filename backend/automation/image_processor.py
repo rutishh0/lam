@@ -9,11 +9,11 @@ import io
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 import re
+from PIL import Image
 
 # OCR imports
 try:
     import pytesseract
-    from PIL import Image
     OCR_SUPPORT = True
 except ImportError:
     OCR_SUPPORT = False
