@@ -140,7 +140,7 @@ async def login(email: str = Form(...), password: str = Form(...)):
     
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
-        return {
+    return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
