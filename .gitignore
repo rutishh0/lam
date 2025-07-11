@@ -75,9 +75,32 @@ agenthub/agents/youtube/db
 
 # Build caches
 .cache/
-
+.cursor/
+.taskmaster/
+.env.example
 # Mobile development
 android-sdk/ 
 
 /reference
 reference/
+
+# Logs
+logs
+*.log
+dev-debug.log
+# Dependency directories
+# Environment variables
+.env
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OS specific
+
+# Task files
+# tasks.json
+# tasks/ 

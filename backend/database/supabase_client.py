@@ -687,7 +687,7 @@ def get_supabase_client() -> SupabaseClient:
 # Async wrapper functions for compatibility
 async def get_db_client() -> SupabaseClient:
     """Get database client instance (async alias)"""
-    return get_supabase_client()
+    return get_supabase_client() 
 
 def test_connection() -> bool:
     """Test database connection - returns True if successful, False otherwise"""
