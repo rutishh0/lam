@@ -54,7 +54,7 @@ class AutomationManager:
                     file_data['type'],
                     file_data.get('filename', '')
                 )
-            except Exception as e:
+        except Exception as e:
                 logger.error(f"Failed to parse file: {str(e)}")
                 raise
         elif user_data:

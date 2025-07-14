@@ -140,7 +140,7 @@ async def login(email: str = Form(...), password: str = Form(...)):
     
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
-    return {
+        return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
@@ -494,7 +494,7 @@ async def cleanup_old_sessions():
         try:
             await asyncio.sleep(3600)  # Run every hour
             await automation_manager.cleanup_old_sessions(24)
-        except Exception as e:
+    except Exception as e:
             logger.error(f"Error cleaning up sessions: {str(e)}")
 
 # Run the application
