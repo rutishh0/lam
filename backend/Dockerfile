@@ -23,4 +23,4 @@ EXPOSE 8080
 
 # Start command - Cloud Run sets PORT=8080
 # Start command - run as a module to ensure correct pathing
-CMD ["uvicorn", "backend.server:app", "--host", "0.0.0.0", "--port", "8080"] 
+CMD ["uvicorn", "server_enhanced:app", "--host", "0.0.0.0", "--port", "8080"] 
