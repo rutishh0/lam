@@ -13,8 +13,8 @@ from typing import Dict, Any, Optional, List, Callable
 
 from .intelligent_automation import IntelligentFormAutomation
 from .data_parser import DataParser
-from ..database.supabase_client import get_supabase_client
-from ..security.encryption import encrypt_data, decrypt_data
+from database.supabase_client import get_supabase_client
+from security.encryption import encrypt_data, decrypt_data
 
 logger = logging.getLogger(__name__)
 
