@@ -31,7 +31,7 @@ class BrowserSession:
     headless: bool = True
     user_data_dir: Optional[str] = None
     cdp_endpoint: Optional[str] = None
-    options: Dict[str, Any] = None
+    options: Optional[Dict[str, Any]] = None
 
 @dataclass
 class UniversityApplicationTask:

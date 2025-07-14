@@ -9,12 +9,12 @@ import logging
 import json
 import base64
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Callable
 
 from .intelligent_automation import IntelligentFormAutomation
 from .data_parser import DataParser
-from database.supabase_client import get_supabase_client
-from security.encryption import encrypt_data, decrypt_data
+from ..database.supabase_client import get_supabase_client
+from ..security.encryption import encrypt_data, decrypt_data
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class AutomationManager:
                     file_data['type'],
                     file_data.get('filename', '')
                 )
-        except Exception as e:
+            except Exception as e:
                 logger.error(f"Failed to parse file: {str(e)}")
                 raise
         elif user_data:
@@ -83,7 +83,7 @@ class AutomationManager:
         
         return session_id
 
-    async def start_automation(self, session_id: str, progress_callback: Optional[callable] = None) -> Dict[str, Any]:
+    async def start_automation(self, session_id: str, progress_callback: Optional[Callable] = None) -> Dict[str, Any]:
         """
         Start the automation process for a session
         
@@ -266,16 +266,16 @@ class AutomationManager:
             # Encrypt sensitive data
             encrypted_data = encrypt_data(json.dumps(session['data']))
             
-            record = {
+            db_record = {
                 'id': session['id'],
                 'user_id': session['user_id'],
                 'target_url': session['target_url'],
-                'encrypted_data': encrypted_data,
                 'status': session['status'],
-                'created_at': session['created_at']
+                'created_at': session['created_at'],
+                'encrypted_data': encrypted_data
             }
             
-            self.db_client.table('automation_sessions').insert(record).execute()
+            self.db_client.client.table('automation_sessions').insert(db_record).execute()
                 
         except Exception as e:
             logger.error(f"Failed to store session: {str(e)}")
@@ -327,7 +327,7 @@ class AutomationManager:
                         'data': screenshot['data']
                     }
                     
-                    response = self.db_client.table('automation_screenshots').insert(
+                    response = self.db_client.client.table('automation_screenshots').insert(
                         screenshot_record
                     ).execute()
                     
@@ -344,7 +344,7 @@ class AutomationManager:
             if 'errors' in result:
                 stored_result['errors'] = json.dumps(result['errors'])
             
-            self.db_client.table('automation_results').insert(stored_result).execute()
+            self.db_client.client.table('automation_results').insert(stored_result).execute()
             
         except Exception as e:
             logger.error(f"Failed to store automation result: {str(e)}")
@@ -352,7 +352,7 @@ class AutomationManager:
     async def _load_session(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Load session from database"""
         try:
-            response = self.db_client.table('automation_sessions').select('*').eq(
+            response = self.db_client.client.table('automation_sessions').select('*').eq(
                 'id', session_id
             ).execute()
             
@@ -362,8 +362,9 @@ class AutomationManager:
             record = response.data[0]
             
             # Decrypt data
-            decrypted_data = json.loads(decrypt_data(record['encrypted_data']))
-            
+            decrypted_json_string = decrypt_data(record['encrypted_data'])
+            decrypted_data = json.loads(decrypted_json_string) if isinstance(decrypted_json_string, str) else {}
+
             session = {
                 'id': record['id'],
                 'user_id': record['user_id'],
@@ -374,9 +375,10 @@ class AutomationManager:
                 'progress': record.get('progress', 0)
             }
             
-            if record.get('summary'):
-                session['summary'] = json.loads(record['summary'])
-            
+            summary_json = record.get('summary')
+            if summary_json and isinstance(summary_json, str):
+                session['summary'] = json.loads(summary_json)
+
             if record.get('error'):
                 session['error'] = record['error']
             
@@ -384,7 +386,7 @@ class AutomationManager:
                 session['completed_at'] = record['completed_at']
             
             # Load results
-            results_response = self.db_client.table('automation_results').select('*').eq(
+            results_response = self.db_client.client.table('automation_results').select('*').eq(
                 'session_id', session_id
             ).order('record_index').execute()
             
