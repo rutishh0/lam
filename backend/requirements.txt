@@ -26,4 +26,5 @@ playwright==1.40.0
 fake-useragent==1.4.0
 Pillow==10.1.0
 cryptography==42.0.7
+litellm>=1.32.0
 aiosmtplib==3.0.1
