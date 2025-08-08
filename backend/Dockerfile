@@ -1,8 +1,9 @@
 FROM node:20-slim AS frontend
 WORKDIR /app/frontend
-COPY ../frontend/package*.json ./
+# Copy frontend from repository root context
+COPY frontend/package*.json ./
 RUN npm ci --no-audit --no-fund || npm install
-COPY ../frontend .
+COPY frontend .
 RUN npm run build
 
 FROM python:3.12-slim AS backend
@@ -14,16 +15,16 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy backend requirements from repository root context
+COPY backend/requirements.txt ./requirements.txt
 
 # Install Python dependencies
 RUN pip install -r requirements.txt
 
 RUN playwright install --with-deps chromium  # Installs browser + deps
 
-# Copy application code
-COPY . .
+# Copy backend application code from repository root context
+COPY backend .
 
 # Copy built frontend into backend for static serving
 COPY --from=frontend /app/frontend/build /app/frontend/build
