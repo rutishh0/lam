@@ -32,6 +32,5 @@ COPY --from=frontend /app/frontend/build /app/frontend/build
 # Expose port
 EXPOSE 8080
 
-# Start command - Cloud Run sets PORT=8080
-# Start command - run as a module to ensure correct pathing
-CMD ["uvicorn", "server_enhanced:app", "--host", "0.0.0.0", "--port", "8080"]
+# Start command honoring PORT env (Koyeb sets PORT=8000). Defaults to 8080 if unset.
+CMD ["sh", "-c", "uvicorn server_enhanced:app --host 0.0.0.0 --port ${PORT:-8080}"]
