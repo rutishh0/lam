@@ -1,4 +1,11 @@
-FROM python:3.12-slim
+FROM node:20-slim AS frontend
+WORKDIR /app/frontend
+COPY ../frontend/package*.json ./
+RUN npm ci --no-audit --no-fund || npm install
+COPY ../frontend .
+RUN npm run build
+
+FROM python:3.12-slim AS backend
 
 WORKDIR /app
 
@@ -18,9 +25,12 @@ RUN playwright install --with-deps chromium  # Installs browser + deps
 # Copy application code
 COPY . .
 
+# Copy built frontend into backend for static serving
+COPY --from=frontend /app/frontend/build /app/frontend/build
+
 # Expose port
 EXPOSE 8080
 
 # Start command - Cloud Run sets PORT=8080
 # Start command - run as a module to ensure correct pathing
-CMD ["uvicorn", "server_enhanced:app", "--host", "0.0.0.0", "--port", "8080"] 
+CMD ["uvicorn", "server_enhanced:app", "--host", "0.0.0.0", "--port", "8080"]

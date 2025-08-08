@@ -10,5 +10,12 @@ tests/
 .env
 .env.*
 frontend/
+production.env
+../production.env
+**/*.env
+**/.env
+**/.env.*
+*.log
+*.DS_Store
 node_modules/
 *.log

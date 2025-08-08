@@ -314,3 +314,50 @@ COMMENT ON TABLE api_usage_logs IS 'API endpoint usage logs for monitoring and r
 COMMENT ON TABLE webhooks IS 'Webhook events from external services like Stripe';
 COMMENT ON TABLE notifications IS 'User notifications (email, SMS, in-app)';
 COMMENT ON TABLE audit_logs IS 'Security and compliance audit trail'; 
+
+-- Agent tables for ChatGPT-like Agent UX
+CREATE TABLE IF NOT EXISTS agent_threads (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS agent_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    thread_id UUID NOT NULL REFERENCES agent_threads(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(50) NOT NULL CHECK (role IN ('user','assistant','tool')),
+    content TEXT NOT NULL,
+    attachments JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS agent_runs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    thread_id UUID NOT NULL REFERENCES agent_threads(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(50) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','completed','error')),
+    target_url TEXT,
+    mode VARCHAR(50) DEFAULT 'general',
+    tool_invocations JSONB DEFAULT '[]'::jsonb,
+    error TEXT,
+    result JSONB DEFAULT NULL,
+    started_at TIMESTAMP WITH TIME ZONE,
+    ended_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS run_artifacts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    run_id UUID NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+    kind VARCHAR(50) NOT NULL CHECK (kind IN ('screenshot','log','text','json')),
+    data TEXT,
+    url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes for agent tables
+CREATE INDEX IF NOT EXISTS idx_agent_threads_user_id ON agent_threads(user_id);
+CREATE INDEX IF NOT EXISTS idx_agent_messages_thread_id ON agent_messages(thread_id);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_thread_id ON agent_runs(thread_id);
+CREATE INDEX IF NOT EXISTS idx_run_artifacts_run_id ON run_artifacts(run_id);

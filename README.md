@@ -1,274 +1,106 @@
-# 🎓 AI LAM - Autonomous University Application Management System
+# 🤖 AI LAM - The Autonomous University Application Agent
 
-A comprehensive SaaS platform for managing and automating university applications with advanced browser automation, real-time monitoring, and intelligent processing.
+AI LAM is a sophisticated SaaS platform designed to automate the tedious and time-consuming process of filling out university applications. Leveraging a powerful Large Action Model (LAM), this system can intelligently parse user-provided documents and autonomously navigate complex web forms, providing a seamless and efficient experience for students and educational consultants.
 
-## 🌟 Features
+**LEGAL DISCLAIMER**: This project is for educational and research purposes. Automated submissions may violate the Terms of Service of university application portals like UCAS. Users must ensure compliance before use.
 
-### 🤖 **Autonomous Browser Automation**
-- Real-time browser automation using Playwright
-- Cross-browser compatibility (Chromium, Firefox, WebKit)
-- Anti-detection measures and human-like behavior simulation
-- Live screenshot capture and progress monitoring
-- WebSocket-based real-time updates
+## ✨ Core Features
 
-### 👥 **User Management & Authentication**
-- JWT-based authentication with refresh tokens
-- Role-based access control (Admin, User)
-- User registration and email verification
-- Secure session management
+- **Autonomous Web Automation**: The LAM backend uses Playwright to intelligently identify and fill form fields, handle multi-step processes, and manage complex UI interactions.
+- **Multi-Source Data Entry**: Users can provide their information in various formats (CSV, PDF, DOC, TXT, MD), and the system will parse and utilize it for form filling.
+- **Real-time Browser Streaming**: Customers can watch the Playwright browser session live in their dashboard, seeing the automation happen in real-time.
+- **SaaS-Ready Architecture**: Built with a multi-tenant architecture, ready for subscription-based access, with user authentication and role-based permissions.
+- **Modern & Sleek UI**: The frontend is designed to be beautiful, futuristic, and intuitive, inspired by modern platforms like OpenAI, Adaline, and Reflect.
 
-### 📊 **Advanced Admin Dashboard**
-- Real-time system monitoring and analytics
-- User management and application tracking
-- System health monitoring with alerts
-- Performance metrics and resource usage
-- Audit logs and security monitoring
+## 🏗️ System Architecture
 
-### 🎯 **Application Processing**
-- Multi-university application support
-- Document upload and management
-- Application status tracking
-- Automated form filling and submission
-- Progress notifications via email/SMS
+AI LAM is built with a modern, scalable, and secure architecture designed for a production-ready SaaS application.
 
-## 🏗 Architecture
+- **Frontend**: A sleek **React 18** application built with **Tailwind CSS** for a futuristic UI. Deployed on **Vercel** for a fast, global CDN.
+- **Backend**: A high-performance **FastAPI** (Python 3.11+) server that orchestrates the automation tasks. Can be deployed on **Koyeb**, **Railway**, or **Cloud Run**.
+- **Database & Authentication**: **Supabase** (PostgreSQL) provides a robust database, user authentication, and real-time capabilities.
+- **Automation Engine**: The core of the system is a powerful **Playwright** engine that runs headless browser sessions in a custom VM environment.
+- **Real-time Streaming**: WebSockets are used to stream the live browser session from the backend to the customer's dashboard.
 
-### **Frontend** (React + TypeScript)
-- Modern React 18 with hooks and context
-- Real-time updates via WebSocket connections
-- Responsive design with Tailwind CSS
-- Component-based architecture
-- Advanced state management
+## 📋 Getting Started
 
-### **Backend** (Python + FastAPI)
-- Async FastAPI with high performance
-- Supabase PostgreSQL database
-- Real-time WebSocket communication
-- Advanced browser automation engine
-- Comprehensive monitoring and logging
+### 1. Database Setup (Supabase)
 
-### **Database** (Supabase)
-- PostgreSQL with real-time subscriptions
-- Row-level security (RLS)
-- Automatic API generation
-- Built-in authentication
-- Real-time database updates
+- **Create a Supabase Project**: Go to the [Supabase Dashboard](https://supabase.com/dashboard) and create a new project.
+- **Run the Schema**: In the SQL Editor, copy and paste the contents of `backend/database/setup.sql` to create all the necessary tables for users, subscriptions, and applications.
 
-## 🚀 Quick Start
+### 2. Environment Setup
 
-### **Prerequisites**
-- Python 3.9+
-- Node.js 16+
-- Git
+- Create a `.env` file in the `backend` directory (use `ENV_SETUP.md` as a template).
+- Create a `.env` file in the `frontend` directory (use `ENV_SETUP.md` as a template).
+- Add your Supabase keys, generate JWT secrets, and configure any other services.
 
-### **1. Clone Repository**
-```bash
-git clone https://github.com/your-username/ai-lam.git
-cd ai-lam
-```
+### 3. Running Locally
 
-### **2. Backend Setup**
+**Start the Backend:**
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# Copy environment file and configure
-cp env.example .env
-# Edit .env with your Supabase credentials
+uvicorn server:app --reload
 ```
 
-### **3. Frontend Setup**
-```bash
-cd ../frontend
-npm install
-# Copy environment file and configure
-cp .env.example .env
-# Edit .env with your backend URL
-```
-
-### **4. Database Setup**
-```bash
-cd ../backend
-python setup_supabase.py
-python create_admin.py
-```
-
-### **5. Run Development Servers**
-
-**Backend:**
-```bash
-cd backend
-uvicorn server:app --reload --port 8001
-```
-
-**Frontend:**
+**Start the Frontend:**
 ```bash
 cd frontend
+npm install
 npm start
 ```
 
-Visit `http://localhost:3000` to access the application.
+Your application will be available at `http://localhost:3000`.
 
-## 🌐 Deployment
+### 4. Deployment
 
-### **Recommended: Railway + Vercel**
+- **One-container (Koyeb)**: Build the included multi-stage Dockerfile in `backend/`. This serves the React build via FastAPI and runs the API.
+  - Set secrets in Koyeb (e.g., `SUPABASE_URL`, `SUPABASE_KEY`, `GOOGLE_API_KEY`, `JWT_SECRET`).
+  - Exposed port is `8080`.
+- **Split deploy**: Backend to Railway/Cloud Run using `backend/Dockerfile`, frontend to Vercel using `frontend/vercel.json`.
 
-**Backend (Railway.com):**
-1. Create account at [railway.app](https://railway.app)
-2. Connect your GitHub repository
-3. Configure environment variables
-4. Deploy automatically with `railway.toml`
+## 🔧 Technologies Used
 
-**Frontend (Vercel):**
-1. Create account at [vercel.com](https://vercel.com)
-2. Import your repository
-3. Configure build settings for `frontend` directory
-4. Set environment variables
+- **React**: For building a modern and interactive user interface.
+- **FastAPI**: A high-performance Python framework for the backend API.
+- **Supabase**: For a scalable PostgreSQL database and user authentication.
+- **Playwright**: For robust and intelligent browser automation.
+- **Stripe**: Ready for integration for subscription management.
+- **Docker**: For containerizing the backend for consistent deployments.
+- **GitHub Actions**: For a full CI/CD pipeline.
 
-📖 **Detailed Guide**: See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
+## 🎯 What The System Can Do
 
-### **Alternative Deployments**
-- **Render + Netlify**: See [DEPLOYMENT.md](DEPLOYMENT.md)
-- **Docker**: See [Dockerfile](Dockerfile)
+- **For Customers**:
+  - Sign up for a subscription plan.
+  - Upload their personal and academic information in various document formats.
+  - Specify the universities they want to apply to.
+  - Watch in real-time as the AI LAM fills out their applications.
+  - Track the status of all their applications in a beautiful dashboard.
 
-## 🔧 Configuration
+- **For Admins**:
+  - A comprehensive admin panel to manage users, subscriptions, and monitor system health.
+  - Analytics on application success rates and system performance.
+  - The ability to intervene or assist with customer applications if needed.
 
-### **Environment Variables**
+## 🚀 Future Vision
 
-**Backend (.env):**
-```env
-# Supabase
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_KEY=your_service_key
-
-# JWT
-JWT_SECRET=your_jwt_secret
-JWT_REFRESH_SECRET=your_refresh_secret
-
-# Optional Services
-STRIPE_SECRET_KEY=your_stripe_key
-SENDGRID_API_KEY=your_sendgrid_key
-SENTRY_DSN=your_sentry_dsn
-```
-
-**Frontend (.env):**
-```env
-REACT_APP_API_URL=http://localhost:8001
-REACT_APP_SUPABASE_URL=your_supabase_url
-REACT_APP_SUPABASE_ANON_KEY=your_anon_key
-```
-
-## 🛠 Development
-
-### **Project Structure**
-```
-ai-lam/
-├── backend/                 # Python FastAPI backend
-│   ├── auth/               # Authentication services
-│   ├── automation/         # Browser automation engine
-│   ├── database/           # Database models and clients
-│   ├── monitoring/         # System monitoring
-│   ├── notifications/      # Email/SMS services
-│   ├── security/           # Encryption and security
-│   └── server.py          # Main FastAPI application
-├── frontend/               # React frontend
-│   ├── src/
-│   │   ├── components/    # Reusable components
-│   │   ├── pages/         # Page components
-│   │   └── App.js         # Main React application
-│   └── public/            # Static assets
-├── tests/                  # Test files
-├── railway.toml           # Railway deployment config
-└── RAILWAY_DEPLOYMENT.md  # Deployment guide
-```
-
-### **Key Components**
-
-**Browser Automation Engine:**
-- `automation/browser_automation.py`: Core automation logic
-- `automation/websocket_handler.py`: Real-time communication
-- `automation/automation_manager.py`: Session management
-
-**Authentication System:**
-- `auth/auth_service.py`: JWT authentication
-- `security/encryption.py`: Data encryption
-- Role-based access control
-
-**Monitoring System:**
-- `monitoring/enhanced_monitor.py`: System metrics
-- `monitoring/status_monitor.py`: Application health
-- Real-time alerts and notifications
-
-## 🧪 Testing
-
-### **Backend Tests**
-```bash
-cd backend
-python -m pytest tests/ -v
-```
-
-### **Frontend Tests**
-```bash
-cd frontend
-npm test
-```
-
-### **End-to-End Tests**
-```bash
-# Start both frontend and backend
-npm run test:e2e
-```
-
-## 📊 Monitoring & Analytics
-
-### **Built-in Monitoring**
-- System resource monitoring (CPU, Memory, Disk)
-- Application performance metrics
-- Real-time alerts and notifications
-- Audit logs and security monitoring
-
-### **External Integrations**
-- **Sentry**: Error tracking and performance monitoring
-- **Stripe**: Payment processing and analytics
-- **SendGrid**: Email delivery and analytics
-
-## 🔒 Security Features
-
-- JWT authentication with refresh tokens
-- Rate limiting and DDoS protection
-- Data encryption at rest and in transit
-- Secure credential storage
-- CORS configuration
-- Input validation and sanitization
+- **Enhanced AI Capabilities**: Integrate more advanced AI models for parsing complex documents and handling dynamic web forms.
+- **Stripe Integration**: Complete the subscription and payment system with Stripe.
+- **Expanded University Support**: Add more university application portals to the automation engine.
+- **White-Label Solution**: Offer a white-label version for educational consultants and agencies.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Fork the repository.
+2. Create a new feature branch.
+3. Make your changes and submit a pull request.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 📞 Support
-
-- **Documentation**: See docs in the repository
-- **Issues**: [GitHub Issues](https://github.com/your-username/ai-lam/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-username/ai-lam/discussions)
+This project is licensed under the MIT License. See the LICENSE file for details.
 
 ## 🙏 Acknowledgments
 
-- **Supabase**: For the amazing database and auth platform
-- **Railway.com**: For simple and powerful deployment
-- **Playwright**: For robust browser automation
-- **FastAPI**: For the high-performance Python framework
-- **React**: For the flexible frontend framework
-
----
-
-**Built with ❤️ for streamlining university applications and helping students achieve their dreams!**
+This project was built with the assistance of an AI pair programmer and inspired by the vision of a truly autonomous web agent. It utilizes a powerful stack of open-source technologies.

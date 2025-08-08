@@ -13,7 +13,9 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 # Services
@@ -137,6 +139,34 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
 )
+
+# Mount API routers
+try:
+    from routes.eko_automation_routes import router as eko_router
+    from routes.enhanced_eko_routes import router as enhanced_eko_router
+    from routes.agent_routes import router as agent_router
+    app.include_router(eko_router)
+    app.include_router(enhanced_eko_router)
+    app.include_router(agent_router)
+except Exception as _e:
+    # Routes are optional; log-friendly print for startup info
+    print(f"⚠️  Optional routers not mounted: {_e}")
+
+# Serve frontend if build exists (enables single-container deploys like Koyeb)
+try:
+    import os
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    candidates = [
+        os.path.join(base_dir, "frontend", "build"),
+        os.path.join(base_dir, "..", "frontend", "build"),
+    ]
+    for path in candidates:
+        build_dir = os.path.abspath(path)
+        if os.path.isdir(build_dir):
+            app.mount("/", StaticFiles(directory=build_dir, html=True), name="frontend")
+            break
+except Exception:
+    pass
 
 # System Status Endpoint
 @app.get("/status")

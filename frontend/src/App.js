@@ -60,6 +60,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Analytics from './components/Analytics';
 import DocumentUpload from './components/DocumentUpload';
 import AdminPanel from './components/AdminPanel';
+import AgentChat from './components/AgentChat';
 import NewClientPage from './pages/NewClientPage';
 import './App.css';
 
@@ -2216,6 +2217,18 @@ function App() {
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/signup" element={<SignUpPage />} />
             <Route path="/signin" element={<SignInPage />} />
+            <Route 
+              path="/dashboard/chat" 
+              element={
+                <ProtectedRoute>
+                  <div className="min-h-screen bg-gray-50 pt-16">
+                    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                      <AgentChat token={localStorage.getItem('token') || ''} />
+                    </div>
+                  </div>
+                </ProtectedRoute>
+              } 
+            />
             <Route 
               path="/dashboard" 
               element={

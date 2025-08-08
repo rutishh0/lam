@@ -36,6 +36,7 @@ class LLMService:
     def __init__(self):
         self.config = get_config()
         self._setup_api_keys()
+        self.default_model = getattr(self.config, 'DEFAULT_MODEL', 'gemini-2.5-flash')
     
     def _setup_api_keys(self) -> None:
         """Set up API keys from configuration."""
@@ -71,8 +72,19 @@ class LLMService:
         **kwargs
     ) -> Dict[str, Any]:
         """Prepare parameters for the API call following Suna's pattern."""
+        # Normalize common Gemini aliases
+        model_normalized = (model_name or self.default_model).strip()
+        alias_map = {
+            "gemini-2.5": "gemini-2.5-flash",
+            "gemini-2.5-flash": "gemini-2.5-flash",
+            "gemini-2.5-flash-exp": "gemini-2.5-flash",
+            "gemini-2.0-flash": "gemini-2.5-flash",
+            "gemini-1.5-flash": "gemini-1.5-flash",
+        }
+        model_normalized = alias_map.get(model_normalized, model_normalized)
+
         params = {
-            "model": model_name,
+            "model": model_normalized,
             "messages": messages,
             "temperature": temperature,
             "stream": stream,
@@ -92,7 +104,7 @@ class LLMService:
             logger.debug(f"Added {len(tools)} tools to API parameters")
         
         # Model-specific configurations
-        if "claude" in model_name.lower() or "anthropic" in model_name.lower():
+        if "claude" in model_normalized.lower() or "anthropic" in model_normalized.lower():
             params["extra_headers"] = {
                 "anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"
             }
@@ -188,7 +200,7 @@ class LLMService:
         Returns:
             str: The generated response text
         """
-        model = model_name or getattr(self.config, 'DEFAULT_MODEL', 'gpt-3.5-turbo')
+        model = (model_name or self.default_model)
         
         messages = []
         if system_prompt:
@@ -228,7 +240,7 @@ class LLMService:
         Returns:
             Dict[str, Any]: Response with potential tool calls
         """
-        model = model_name or getattr(self.config, 'DEFAULT_MODEL', 'gpt-3.5-turbo')
+        model = (model_name or self.default_model)
         
         try:
             response = await self.make_api_call(

@@ -35,7 +35,8 @@ class Config:
         self.GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
         
         # Default models
-        self.DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'gemini-2.0-flash-exp')
+        # Default to Gemini 2.5 Flash per project preference; can be overridden by env
+        self.DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'gemini-2.5-flash')
         self.MODEL_TO_USE = os.getenv('MODEL_TO_USE', self.DEFAULT_MODEL)
         
         # Security
@@ -49,7 +50,11 @@ class Config:
         self.DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
         
         # CORS settings
-        self.ALLOWED_ORIGINS = self._parse_list(os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000'))
+        frontend_url = os.getenv('FRONTEND_URL', '')
+        default_origins = ['http://localhost:3000']
+        if frontend_url:
+            default_origins.append(frontend_url)
+        self.ALLOWED_ORIGINS = self._parse_list(os.getenv('ALLOWED_ORIGINS', ','.join(default_origins)))
         
         # Monitoring
         self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
