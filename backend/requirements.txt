@@ -10,13 +10,14 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 
 # Database (core only)
-supabase==2.2.0
+# Upgrade supabase to align with modern httpx/gotrue compatibility
+supabase>=2.5.0
 # psycopg2-binary 2.9.9 includes prebuilt wheels for Python 3.12 and avoids compilation issues
 psycopg2-binary==2.9.9
 
 # HTTP requests (adjusted for supabase compatibility)
 requests==2.31.0
-httpx==0.24.1
+httpx==0.27.2
 
 # File handling
 aiofiles==23.2.1
